@@ -8,7 +8,7 @@ cd "$(dirname $0)"
 # The stack is connected to an external network interface that is shared between all stacks on the server
 docker network ls | grep servant-net &> /dev/null
 if [ $? -ne 0 ]; then
-  docker network create -d overlay servant-net
+  docker network create --attachable -d overlay servant-net
 fi
 
 
@@ -19,16 +19,7 @@ title() {
 }
 
 list_services() {
-  cd "$1"
-  docker compose ls | tail -n+2
-  cd ..
-}
-
-list_head() {
-  #cd llm-stack
-  #docker compose ls | head -n1
-  #cd ..
-  echo "NAME                STATUS              CONFIG FILES"
+  docker compose ls
 }
 
 compose() {
@@ -48,10 +39,9 @@ case "${ACTION}" in
     ;;
   *)
     title "Show status"
-    list_head
+    list_services
     ;;
 esac
-
 
 find . -type d -name "*-stack" | while read folder; do
   case "${ACTION}" in
@@ -64,8 +54,12 @@ find . -type d -name "*-stack" | while read folder; do
        compose "$folder" down
       ;;
     *)
-      # Show running status if no parameter given
-      list_services "$folder"
+      title "Services of $folder"
+      cd $folder
+      docker compose ps --format "{{.Name}} {{.Image}} {{.Status}}" | while read NAME IMAGE STATUS; do
+        echo -e "  - $IMAGE - $STATUS: $NAME"
+      done
+      cd ..
       ;;
   esac
 done
