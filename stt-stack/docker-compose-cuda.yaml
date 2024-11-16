@@ -1,0 +1,41 @@
+name: stt-stack
+# TODO: https://docs.astral.sh/uv/guides/integration/docker/#configuring-watch-with-docker-compose
+services:
+
+#
+# available env vars, see:
+# https://github.com/fedirz/faster-whisper-server/blob/master/src/faster_whisper_server/config.py
+#
+  faster-whisper-server:
+    image: fedirz/faster-whisper-server:latest-cuda
+    restart: unless-stopped
+    ports:
+      - 8000:8000
+    volumes:
+      - hugging_face_cache:/root/.cache/huggingface
+    environment:
+      - WHISPER__MODEL=Systran/faster-whisper-small
+      - WHISPER__COMPUTE_TYPE=int8
+      - DEFAULT_LANGUAGE=de
+#      - UVICORN_HOST=0.0.0.0
+#      - UVICORN_PORT=8000
+    networks:
+      - servant-net
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: ["gpu"]
+              # If you have CDI feature enabled use the following instead
+              # https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/cdi-support.html
+              # https://docs.docker.com/reference/cli/dockerd/#enable-cdi-devices
+              # - driver: cdi
+              #   device_ids:
+              #   - nvidia.com/gpu=all
+
+volumes:
+  hugging_face_cache:
+
+networks:
+  servant-net:
+    external: true
