@@ -1,4 +1,4 @@
-name: servant-llm
+name: llm-stack
 services:
 
   ollama-llm:
