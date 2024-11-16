@@ -1,4 +1,4 @@
-name: llm-stack
+name: servant-llm
 services:
 
   ollama-llm:
@@ -37,6 +37,8 @@ services:
       - "host.docker.internal:host-gateway"
     volumes:
       - open-webui-local:/app/backend/data
+    networks:
+      - servant-net
 #    deploy:
 #      resources:
 #        reservations:
@@ -48,3 +50,7 @@ services:
 volumes:
   open-webui-local:
   ollama-downloads:
+
+networks:
+  servant-net:
+    external: true
