@@ -14,8 +14,13 @@ record_request = VoiceActivatedRecorder(
     silence_lead_time=2
 )
 tts_service = TextToSpeechPyTtsx()
-stt_service = SpeechToTextWhisperRemote()
-llm_service = LmmOllamaRemote()
+stt_service = SpeechToTextWhisperRemote(
+    url='http://127.0.0.1:8000/v1/audio/transcriptions'
+)
+llm_service = LmmOllamaRemote(
+    model='llama3.2:1b',
+    host="http://127.0.0.1:11434",
+)
 
 def title(msg):
     print("###########################################################################################################")
