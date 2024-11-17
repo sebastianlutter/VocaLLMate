@@ -7,6 +7,8 @@ from servant.llm.llm_ollama_remote import LmmOllamaRemote
 from servant.stt.stt_whisper_remote import SpeechToTextWhisperRemote
 from servant.voice_activation.voice_activation import VoiceActivatedRecorder
 
+nltk.download('punkt_tab')
+
 # the components we need for the service
 record_request = VoiceActivatedRecorder(
     wake_word="hey computer",
