@@ -1,4 +1,4 @@
-from servant.tts_interface import TextToSpeechInterface
+from servant.tts.tts_interface import TextToSpeechInterface
 import pyttsx3
 
 
@@ -22,6 +22,7 @@ class TextToSpeehPyTtsx(TextToSpeechInterface):
     def speak(self, text: str):
         self.engine.say(text)
         self.engine.runAndWait()
+        #self.engine.stop()
 
 
 if __name__ == '__main__':

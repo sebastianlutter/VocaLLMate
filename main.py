@@ -1,75 +1,114 @@
-import re
-from ollama import Client
-from typing import Tuple
-from burr.core import ApplicationBuilder, State, action, when
-from servant.utils import get_speech_input
-from servant.tts_pyttsx import TextToSpeehPyTtsx
 
+from typing import Tuple
+from burr.core import ApplicationBuilder, State, action, when, expr
+from servant.tts.tts_pyttsx import TextToSpeehPyTtsx
+from servant.llm.llm_ollama_remote import LmmOllamaRemote
+from servant.stt.stt_whisper_remote import SpeechToTextWhisperRemote
+from voice_activation.voice_activation import VoiceActivatedRecorder
+
+# the components we need for the service
+record_request = VoiceActivatedRecorder()
 tts_service = TextToSpeehPyTtsx()
+stt_service = SpeechToTextWhisperRemote()
+llm_service = LmmOllamaRemote()
+
+def title(msg):
+    print("###########################################################################################################")
+    print(f"# {msg}")
+    print("###########################################################################################################")
+
+@action(reads=[], writes=["voice_buffer"])
+def get_user_speak_input(state: State) -> Tuple[dict, State]:
+    # block until wake word has been said
+    audio_buffer = record_request.listen_for_wake_word()
+    title(f"get_user_speak_input")
+    return {"voice_buffer": audio_buffer}, state.update(voice_buffer=audio_buffer)
+
+@action(reads=["voice_buffer"], writes=["prompt","prompt_len"])
+def transcribe_voice_recording(state: State) -> Tuple[dict, State]:
+    audio_buffer = state.get("voice_buffer")
+    transcription = stt_service.transcribe(audio_buffer)
+    title(f"transcribe_voice_recording: {transcription}")
+    return {"prompt": transcription, "prompt_len": len(str(transcription).strip())}, state.update(prompt=transcription).update(prompt_len=len(str(transcription).strip()))
+
+@action(reads=[], writes=["voice_buffer"])
+def we_did_not_understand(state: State) -> Tuple[dict, State]:
+    message = "Ich habe dich leider nicht verstanden. Sag es noch mal."
+    title(message)
+    voice_buffer = record_request.start_recording()
+    return {"voice_buffer": voice_buffer}, state.update(voice_buffer=voice_buffer)
 
 @action(reads=["chat_history"], writes=["prompt", "chat_history"])
 def human_input(state: State) -> Tuple[dict, State]:
-    print("#########################################################################")
-    while True:
-        # wait for wake-word and transcribe the recorded user voice
-        prompt = get_speech_input()
-        if prompt.strip():
-            break
-        else:
-            print("Got no user input, waiting for input again")
     # add the prompt to history
+    prompt = state.get("prompt")
     print(f"User: {prompt}")
     chat_item = {"content": prompt, "role": "user"}
+    title(f"human_input: {prompt}")
     return {"prompt": prompt}, state.update(prompt=prompt).append(chat_history=chat_item)
+
+@action(reads=["prompt"], writes=["exit_chat"])
+def exit_chat_check(state: State) -> Tuple[dict, State]:
+    prompt = state.get("prompt")
+    is_ending = llm_service.is_conversation_ending(prompt)
+    title(f"exit_chat_check: {is_ending}")
+    return {"exit_chat": is_ending}, state.update(exit_chat=is_ending)
+
+@action(reads=[], writes=["chat_history"])
+def exit_chat(state: State) -> Tuple[dict, State]:
+    title("exit_chat")
+    title("exit_chat")
+    return {"chat_history": []}, state.update(chat_history=[])
 
 @action(reads=["chat_history"], writes=["response", "chat_history"])
 def ai_response(state: State) -> Tuple[dict, State]:
-    client = Client(host="http://127.0.0.1:11434")
-    content = (
-        client.chat(
-            model='llama3.2',
-            stream=True,
-            messages=state["chat_history"],
-        )
-    )
-    # collect response while printing it from stream
-    response = ''
-    # collect sentences to send them to tts early
-    sentence_buffer = ""
-    print("KI: ", end='', flush=True)
-    for chunk in content:
-        c = chunk['message']['content']
-        print(c, end='', flush=True)
-        sentence_buffer += c.replace('\n',' ')
-        response += c
-    tts_service.speak(response)
+    # give the history including the last user input to the LLM to get its response
+    response = llm_service.chat_blocking(state["chat_history"])
+    # add response to the history to show to the use
     chat_item = {"content": response, "role": "assistant"}
+    title(f"ai_response: {response}")
     return {"response": response}, state.update(response=response).append(chat_history=chat_item)
 
 def application():
     return (
         ApplicationBuilder()
         .with_actions(
+            get_user_speak_input=get_user_speak_input,
+            transcribe_voice_recording=transcribe_voice_recording,
+            we_did_not_understand=we_did_not_understand,
             human_input=human_input,
             ai_response=ai_response,
+            exit_chat_check=exit_chat_check,
+            exit_chat=exit_chat
         )
         .with_transitions(
+            # get first user input with wakeup word "hey computer" and send to transcription
+            ("get_user_speak_input", "transcribe_voice_recording"),
+            # check if we have enough chars from the transcription, if not go to we_did_not_understand
+            ("transcribe_voice_recording", "we_did_not_understand", expr("prompt_len < 10")),
+            # if we_did_not_understand directly record again and transcribe again
+            ("we_did_not_understand", "transcribe_voice_recording"),
+            # if prompt_len is ok then send to human_input
+            ("transcribe_voice_recording", "exit_chat_check", expr("prompt_len >= 10")),
+            # if user wants to end the conversation we do so
+            ("exit_chat_check", "exit_chat", when(exit_chat=True)),
+            # else pass on to use this as human input
+            ("exit_chat_check", "human_input", when(exit_chat=False)),
+            # the human input is given to the LLM to get a response
             ("human_input", "ai_response"),
-            ("ai_response", "human_input"),
+            # after AI has answered go back to wait for wakeup word to record again
+            ("ai_response", "get_user_speak_input"),
         )
-        .with_state(chat_history=[])
-        .with_entrypoint("human_input")
+        .with_state(chat_history=[], exit_chat=False)
+        .with_entrypoint("get_user_speak_input")
         .with_tracker("local", project="servant-llm")
         .build()
     )
 
 if __name__ == "__main__":
-    tts = TextToSpeehPyTtsx()
-    tts.speak("Das ist ein test. This is a test.")
-    import sys
-    sys.exit()
     app = application()
+    app.visualize(include_conditions=True)
     action_we_ran, result, state = app.run()
-    print("Application finished")
+    title("Application finished")
     for item in state['chat_history']:
         print(item['role'] + ':' + item['content'] + '\n')

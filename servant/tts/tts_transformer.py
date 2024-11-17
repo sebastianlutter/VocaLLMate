@@ -3,7 +3,7 @@ import torch
 import warnings
 import numpy as np
 from transformers import AutoProcessor, BarkModel
-from servant.tts_interface import TextToSpeechInterface
+from servant.tts.tts_interface import TextToSpeechInterface
 
 warnings.filterwarnings(
     "ignore",
