@@ -117,8 +117,8 @@ def application():
 
 if __name__ == "__main__":
     app = application()
-    app.visualize(include_conditions=True)
-    action_we_ran, result, state = app.run()
+    app.visualize(include_conditions=True, output_file_path="graph.png", include_state=True)
+    action_we_ran, result, state = app.run(halt_after=["exit_chat"])
     title("Application finished")
     for item in state['chat_history']:
         print(item['role'] + ':' + item['content'] + '\n')
