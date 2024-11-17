@@ -5,6 +5,11 @@
 #
 cd "$(dirname $0)"
 
+# Make sure that there is a docker swarm up and running, if not do so
+docker node ls  &> /dev/null
+if [ $? -ne 0 ]; then
+  docker swarm init
+fi
 # The stack is connected to an external network interface that is shared between all stacks on the server
 docker network ls | grep servant-net &> /dev/null
 if [ $? -ne 0 ]; then
