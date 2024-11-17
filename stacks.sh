@@ -11,7 +11,6 @@ if [ $? -ne 0 ]; then
   docker network create --attachable -d overlay servant-net
 fi
 
-
 title() {
   echo "##############################################################"
   echo "# $1"
@@ -31,11 +30,11 @@ compose() {
 ACTION="${1}"
 # set device suffix
 case "${2}" in
-  cuda)
+  cuda|nvidia)
     echo "Starting NVIDIA cuda stacks"
     DEVICE="-cuda"
     ;;
-  rocm)
+  rocm|amd)
     echo "Starting ROCm stacks (not implemented yet)"
     DEVICE="-rocm"
     ;;
