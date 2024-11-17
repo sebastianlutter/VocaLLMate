@@ -17,7 +17,7 @@ class LmmOllamaRemote(LmmInterface):
     def chat_blocking(self, full_chat):
         content = (
             self.client.chat(
-                model='llama3.2',
+                model=self.model,
                 stream=False,
                 messages=full_chat,
             )
@@ -27,18 +27,14 @@ class LmmOllamaRemote(LmmInterface):
     def chat_stream(self, full_chat):
         content = (
             self.client.chat(
-                model='llama3.2',
+                model=self.model,
                 stream=True,
                 messages=full_chat,
             )
         )
-        # collect response while printing it from stream
-        response = ''
-        # collect sentences to send them to tts early
-        sentence_buffer = ""
-        print("KI: ", end='', flush=True)
+        #print("KI: ", end='', flush=True)
         for chunk in content:
             c = chunk['message']['content']
-            print(c, end='', flush=True)
+            #print(c, end='', flush=True)
             yield c
 
