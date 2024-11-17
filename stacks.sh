@@ -24,11 +24,28 @@ list_services() {
 
 compose() {
   cd "$1"
-  docker compose $2 $3 $4
+  docker compose -f ${CONF} $2 $3 $4
   cd ..
 }
 
 ACTION="${1}"
+# set device suffix
+case "${2}" in
+  cuda)
+    echo "Starting NVIDIA cuda stacks"
+    DEVICE="-cuda"
+    ;;
+  rocm)
+    echo "Starting ROCm stacks (not implemented yet)"
+    DEVICE="-rocm"
+    ;;
+  *)
+    echo "Starting CPU only stacks"
+    DEVICE=""
+    ;;
+esac
+CONF="docker-compose${DEVICE}.yaml"
+echo "Using $CONF files"
 
 case "${ACTION}" in
   start)
