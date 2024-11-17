@@ -19,7 +19,7 @@ services:
       - servant-net
     entrypoint: ["/usr/bin/bash", "/entrypoint.sh"]
 
-  openWebUI:
+  open-web-ui:
     image: ghcr.io/open-webui/open-webui:main
     restart: always
     environment: # see https://docs.openwebui.com/getting-started/advanced-topics/env-configuration/

@@ -10,6 +10,7 @@ sleep 5
 
 echo "🔴 Retrieve LLAMA3.2 model..."
 ollama pull llama3.2:1b
+ollama pull llama3.2:3b
 echo "🟢 Done!"
 
 # Wait for Ollama process to finish.
