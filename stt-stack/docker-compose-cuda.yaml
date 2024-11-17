@@ -25,7 +25,9 @@ services:
       resources:
         reservations:
           devices:
-            - capabilities: ["gpu"]
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
               # If you have CDI feature enabled use the following instead
               # https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/cdi-support.html
               # https://docs.docker.com/reference/cli/dockerd/#enable-cdi-devices
