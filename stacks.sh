@@ -37,7 +37,7 @@ compose() {
 ACTION="${1}"
 # set device suffix
 case "${2}" in
-  cuda|nvidia)
+  cuda|nvidia|gpu)
     echo "Starting NVIDIA cuda stacks"
     DEVICE="-cuda"
     ;;
