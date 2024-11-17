@@ -73,7 +73,13 @@ def exit_chat(state: State) -> Tuple[dict, State]:
 @action(reads=["chat_history"], writes=["response", "chat_history"])
 def ai_response(state: State) -> Tuple[dict, State]:
     # give the history including the last user input to the LLM to get its response
-    response = llm_service.chat_blocking(state["chat_history"])
+    response_stream = llm_service.chat_stream(state["chat_history"])
+    response = ''
+    print("KI: ", end='', flush=True)
+    # consume the stream and collect response while printing to console
+    for chunk in response_stream:
+        print(chunk, end='', flush=True)
+        response += chunk
     # add response to the history to show to the use
     chat_item = {"content": response, "role": "assistant"}
     title(f"ai_response: {response}")
