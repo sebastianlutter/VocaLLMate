@@ -1,14 +1,19 @@
 
 from typing import Tuple
 from burr.core import ApplicationBuilder, State, action, when, expr
-from servant.tts.tts_pyttsx import TextToSpeehPyTtsx
+from servant.tts.tts_pyttsx import TextToSpeechPyTtsx
 from servant.llm.llm_ollama_remote import LmmOllamaRemote
 from servant.stt.stt_whisper_remote import SpeechToTextWhisperRemote
 from servant.voice_activation.voice_activation import VoiceActivatedRecorder
 
 # the components we need for the service
-record_request = VoiceActivatedRecorder()
-tts_service = TextToSpeehPyTtsx()
+record_request = VoiceActivatedRecorder(
+    wake_word="hey computer",
+    threshold=200,
+    device_index=None,
+    silence_lead_time=2
+)
+tts_service = TextToSpeechPyTtsx()
 stt_service = SpeechToTextWhisperRemote()
 llm_service = LmmOllamaRemote()
 

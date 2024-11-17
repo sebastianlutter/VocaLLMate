@@ -6,13 +6,13 @@ from io import BytesIO
 import time
 
 class VoiceActivatedRecorder:
-    def __init__(self, wake_word="hey computer", device_index=None, silence_lead_time=0):
+    def __init__(self, wake_word="hey computer", device_index=None, silence_lead_time=2, threshold=200):
         self.wake_word = wake_word.lower()
         self.device_index = device_index
         self.silence_lead_time = silence_lead_time  # Configurable delay before counting silence
         self.recognizer = sr.Recognizer()
         self.audio = pyaudio.PyAudio()  # Create an interface to PortAudio
-        self.silence_threshold = 100  # Updated silence threshold
+        self.silence_threshold = threshold
 
     def listen_for_wake_word(self):
         with sr.Microphone(device_index=self.device_index) as source:
