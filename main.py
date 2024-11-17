@@ -4,7 +4,7 @@ from burr.core import ApplicationBuilder, State, action, when, expr
 from servant.tts.tts_pyttsx import TextToSpeehPyTtsx
 from servant.llm.llm_ollama_remote import LmmOllamaRemote
 from servant.stt.stt_whisper_remote import SpeechToTextWhisperRemote
-from voice_activation.voice_activation import VoiceActivatedRecorder
+from servant.voice_activation.voice_activation import VoiceActivatedRecorder
 
 # the components we need for the service
 record_request = VoiceActivatedRecorder()
