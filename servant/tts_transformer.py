@@ -3,14 +3,15 @@ import torch
 import warnings
 import numpy as np
 from transformers import AutoProcessor, BarkModel
+from servant.tts_interface import TextToSpeechInterface
 
 warnings.filterwarnings(
     "ignore",
     message="torch.nn.utils.weight_norm is deprecated in favor of torch.nn.utils.parametrizations.weight_norm.",
 )
-nltk.download('punkt_tab')
 
-class TextToSpeechService:
+
+class TextToSpeechTransformer(TextToSpeechInterface):
     def __init__(self, device: str = "cuda" if torch.cuda.is_available() else "cpu"):
         """
         Initializes the TextToSpeechService class.
@@ -19,10 +20,14 @@ class TextToSpeechService:
             device (str, optional): The device to be used for the model, either "cuda" if a GPU is available or "cpu".
             Defaults to "cuda" if available, otherwise "cpu".
         """
+        nltk.download('punkt_tab')
         self.device = device
         self.processor = AutoProcessor.from_pretrained("suno/bark-small")
         self.model = BarkModel.from_pretrained("suno/bark-small")
         self.model.to(self.device)
+
+    def speak(self, text: str):
+        return self.long_form_synthesize(text)
 
     def synthesize(self, text: str, voice_preset: str = "v2/de_speaker_1"):
         """
@@ -68,5 +73,5 @@ class TextToSpeechService:
 
 
 if __name__ == '__main__':
-    tts = TextToSpeechService()
-    tts.synthesize("Hello world")
+    tts = TextToSpeechTransformer()
+    tts.speak("Hello world")

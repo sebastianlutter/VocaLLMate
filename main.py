@@ -3,9 +3,9 @@ from ollama import Client
 from typing import Tuple
 from burr.core import ApplicationBuilder, State, action, when
 from servant.utils import get_speech_input
-#from servant.tts import TextToSpeechService
+from servant.tts_pyttsx import TextToSpeehPyTtsx
 
-#tts_service = TextToSpeechService()
+tts_service = TextToSpeehPyTtsx()
 
 @action(reads=["chat_history"], writes=["prompt", "chat_history"])
 def human_input(state: State) -> Tuple[dict, State]:
@@ -42,6 +42,7 @@ def ai_response(state: State) -> Tuple[dict, State]:
         print(c, end='', flush=True)
         sentence_buffer += c.replace('\n',' ')
         response += c
+    tts_service.speak(response)
     chat_item = {"content": response, "role": "assistant"}
     return {"response": response}, state.update(response=response).append(chat_history=chat_item)
 
@@ -63,6 +64,10 @@ def application():
     )
 
 if __name__ == "__main__":
+    tts = TextToSpeehPyTtsx()
+    tts.speak("Das ist ein test. This is a test.")
+    import sys
+    sys.exit()
     app = application()
     action_we_ran, result, state = app.run()
     print("Application finished")
