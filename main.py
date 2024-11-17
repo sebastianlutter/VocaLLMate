@@ -1,4 +1,5 @@
-
+import nltk
+from nltk.tokenize import sent_tokenize
 from typing import Tuple
 from burr.core import ApplicationBuilder, State, action, when, expr
 from servant.tts.tts_pyttsx import TextToSpeechPyTtsx
@@ -77,12 +78,31 @@ def ai_response(state: State) -> Tuple[dict, State]:
     response = ''
     print("KI: ", end='', flush=True)
     # consume the stream and collect response while printing to console
+    buffer = ""
+    response = ""
+    sentences_all = []
     for chunk in response_stream:
-        print(chunk, end='', flush=True)
         response += chunk
+        buffer += chunk
+        print(chunk, end='', flush=True)
+        # Tokenize to sentences
+        sentences = sent_tokenize(buffer)
+        # process all full sentences (except incomplete)
+        for sentence in sentences[:-1]:
+            tts_service.speak(sentence)
+            sentences_all.append(sentence)
+        # store last (maybe incomplete) sentence in the buffer
+        buffer = sentences[-1]
+    if len(buffer) > 2:
+        # add last fragment of response
+        tts_service.speak(buffer)
+        sentences_all.append(buffer)
     # add response to the history to show to the use
     chat_item = {"content": response, "role": "assistant"}
-    title(f"ai_response: {response}")
+    print()
+    title(f"ai_response finished")
+    for s in sentences_all:
+        print(f"Sentence: {s}")
     return {"response": response}, state.update(response=response).append(chat_history=chat_item)
 
 def application():
