@@ -8,7 +8,9 @@ cd "$(dirname $0)"
 # Make sure that there is a docker swarm up and running, if not do so
 docker node ls  &> /dev/null
 if [ $? -ne 0 ]; then
-  docker swarm init
+  IP_ADDRESS=$(ip -4 addr show $(ip route get 8.8.8.8 | grep -oP 'dev \K\S+') | grep -oP 'inet \K\S+' | cut -d/ -f1)
+  echo "Init swarm with IP $IP_ADDRESS"
+  docker swarm init --advertise-addr $IP_ADDRESS
 fi
 # The stack is connected to an external network interface that is shared between all stacks on the server
 docker network ls | grep servant-net &> /dev/null
