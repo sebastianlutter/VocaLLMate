@@ -3,7 +3,7 @@ from ollama import Client
 from typing import Tuple
 from burr.core import ApplicationBuilder, State, action, when
 from servant.utils import get_speech_input
-from servant.tts import TextToSpeechService
+#from servant.tts import TextToSpeechService
 
 #tts_service = TextToSpeechService()
 
