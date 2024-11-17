@@ -45,9 +45,28 @@ case "${2}" in
     echo "Starting ROCm stacks (not implemented yet)"
     DEVICE="-rocm"
     ;;
-  *)
-    echo "Starting CPU only stacks"
+  cpu)
     DEVICE=""
+    ;;
+  *)
+    # default for CPU
+    DEVICE=""
+    # probe for nvidia (auto detect)
+    # Check if NVIDIA driver is installed and GPU is operational
+    if command -v nvidia-smi &> /dev/null && nvidia-smi > /dev/null 2>&1; then
+        echo "NVIDIA driver is installed and GPU is operational."
+        if docker info | grep -q "Runtimes:.*nvidia"; then
+            echo "NVIDIA container runtime is installed."
+            echo "Using NVIDIA CUDA docker"
+            DEVICE="-cuda"
+        else
+            echo "NVIDIA container runtime is not installed."
+            echo "Starting CPU only stacks"
+        fi
+    else
+        echo "NVIDIA driver is not installed or GPU is not operational."
+        echo "Starting CPU only stacks"
+    fi
     ;;
 esac
 CONF="docker-compose${DEVICE}.yaml"
