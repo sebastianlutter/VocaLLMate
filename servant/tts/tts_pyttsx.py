@@ -1,27 +1,20 @@
 from servant.tts.tts_interface import TextToSpeechInterface
 import pyttsx3
 import time
-import queue
-import re
-from threading import Thread
+
 
 class TextToSpeechPyTtsx(TextToSpeechInterface):
 
     def __init__(self, voice_rate=150, voice='German'):
+        super().__init__()
         self.engine = pyttsx3.init()  # object creation
         self.engine.setProperty('rate', voice_rate)  # setting up new voice rate
         #self.engine.setProperty('volume', 1.0)  # setting up volume level  between 0 and 1
         self.engine.setProperty('voice', 'German')
-        # a queue for the sentences to say
-        self.queue = queue.Queue()
-        # Create a thread for the speak_loop
-        self.speak_thread = Thread(target=self.speak_loop)
-        self.speak_thread.daemon = True  # Set thread as daemon for clean termination
-        self.speak_thread.start()  # Start the speak_loop thread
 
-    def speak(self, text: str):
-        # clean the text from all special chars (markdown etc)
-        self.queue.put(text)
+    def speak_sentence(self, sentence: str):
+        self.engine.say(sentence)
+        self.engine.runAndWait()
 
     def speak_loop(self):
         while True:
