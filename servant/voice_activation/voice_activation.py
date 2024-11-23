@@ -11,13 +11,13 @@ class VoiceActivatedRecorder(VoiceActivationInterface):
 
     def __init__(self):
         super().__init__()
-        self.wake_word = os.getenv('WAKEWORD')
-        self.device_index = os.getenv('AUDIO_MICROPHONE_DEVICE')
+        self.wake_word = self.wakeword
+        self.device_index = self.audio_microphone_device
         # Configurable delay before counting silence
         self.silence_lead_time = 2
         self.recognizer = sr.Recognizer()
         self.audio = pyaudio.PyAudio()  # Create an interface to PortAudio
-        self.silence_threshold = os.getenv('WAKEWORD_THRESHOLD')
+        self.silence_threshold = self.wakeword_threshold
 
     def listen_for_wake_word(self):
         with sr.Microphone(device_index=self.device_index) as source:

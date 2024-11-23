@@ -1,5 +1,6 @@
 import queue
 import time
+import os
 from threading import Thread
 from abc import ABC, abstractmethod
 
@@ -7,29 +8,19 @@ class VoiceActivationInterface(ABC):
 
     def __init__(self):
         super().__init__()
-        # a queue for the sentences to say
-        self.queue = queue.Queue()
-        # Create a thread for the speak_loop
-        self.speak_thread = Thread(target=self.speak_loop)
-        self.speak_thread.daemon = True  # Set thread as daemon for clean termination
-        self.speak_thread.start()  # Start the speak_loop thread
-
-    def speak(self, text: str):
-        # clean the text from all special chars (markdown etc)
-        self.queue.put(text)
-
+        self.wakeword = os.getenv('WAKEWORD')
+        self.wakeword_threshold = os.getenv('WAKEWORD_THRESHOLD')
+        self.audio_microphone_device = int(os.getenv('AUDIO_MICROPHONE_DEVICE'))
+        if self.audio_microphone_device < 0:
+            self.audio_microphone_device = None
 
     @abstractmethod
-    def speak_sentence(self, sentence: str):
+    def listen_for_wake_word(self, sentence: str):
         pass
 
-    def speak_loop(self):
-        while True:
-            sentence = self.queue.get()
-            #print(f"Got sentence: {sentence}")
-            self.speak_sentence(sentence)
-            # wait to have a small gap after each sentence
-            time.sleep(1.2)
+    @abstractmethod
+    def start_recording(self):
+        pass
 
     def config_str(self):
-        return f''
+        return f'wakeword: {self.wakeword}, threshold: {self.wakeword_threshold}'
