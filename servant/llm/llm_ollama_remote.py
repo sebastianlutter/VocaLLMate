@@ -4,9 +4,10 @@ from servant.llm.llm_interface import LmmInterface
 
 class LmmOllamaRemote(LmmInterface):
 
-    def __init__(self, model: str = 'llama3.2:1b', host: str = 'http://127.0.0.1:11434'):
-        self.client = Client(host=host)
-        self.model = model
+    def __init__(self):
+        super().__init__()
+        self.client = Client(host=self.llm_endpoint)
+        self.model = self.llm_provider_model
 
     def chat(self, text: str, stream: bool = False):
         if stream:

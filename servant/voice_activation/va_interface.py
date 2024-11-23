@@ -3,9 +3,10 @@ import time
 from threading import Thread
 from abc import ABC, abstractmethod
 
-class TextToSpeechInterface(ABC):
+class VoiceActivationInterface(ABC):
 
     def __init__(self):
+        super().__init__()
         # a queue for the sentences to say
         self.queue = queue.Queue()
         # Create a thread for the speak_loop
@@ -31,4 +32,4 @@ class TextToSpeechInterface(ABC):
             time.sleep(1.2)
 
     def config_str(self):
-        return f'endpoint: {self.stt_endpoint}'
+        return f''

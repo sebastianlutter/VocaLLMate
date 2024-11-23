@@ -1,18 +1,23 @@
 import pyaudio
 import wave
+import os
 import speech_recognition as sr
 import numpy as np
 from io import BytesIO
 import time
+from servant.voice_activation.va_interface import VoiceActivationInterface
 
-class VoiceActivatedRecorder:
-    def __init__(self, wake_word="hey computer", device_index=None, silence_lead_time=2, threshold=200):
-        self.wake_word = wake_word.lower()
-        self.device_index = device_index
-        self.silence_lead_time = silence_lead_time  # Configurable delay before counting silence
+class VoiceActivatedRecorder(VoiceActivationInterface):
+
+    def __init__(self):
+        super().__init__()
+        self.wake_word = os.getenv('WAKEWORD')
+        self.device_index = os.getenv('AUDIO_MICROPHONE_DEVICE')
+        # Configurable delay before counting silence
+        self.silence_lead_time = 2
         self.recognizer = sr.Recognizer()
         self.audio = pyaudio.PyAudio()  # Create an interface to PortAudio
-        self.silence_threshold = threshold
+        self.silence_threshold = os.getenv('WAKEWORD_THRESHOLD')
 
     def listen_for_wake_word(self):
         with sr.Microphone(device_index=self.device_index) as source:

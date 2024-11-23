@@ -2,28 +2,15 @@ import nltk
 from nltk.tokenize import sent_tokenize
 from typing import Tuple
 from burr.core import ApplicationBuilder, State, action, when, expr
-from servant.tts.tts_pyttsx import TextToSpeechPyTtsx
-from servant.llm.llm_ollama_remote import LmmOllamaRemote
-from servant.stt.stt_whisper_remote import SpeechToTextWhisperRemote
-from servant.voice_activation.voice_activation import VoiceActivatedRecorder
+from servant.servant_factory import ServantFactory
+from dotenv import load_dotenv
+
+load_dotenv()
+
 
 nltk.download('punkt_tab')
 
-# the components we need for the service
-record_request = VoiceActivatedRecorder(
-    wake_word="hey computer",
-    threshold=200,
-    device_index=None,
-    silence_lead_time=2
-)
-tts_service = TextToSpeechPyTtsx()
-stt_service = SpeechToTextWhisperRemote(
-    url='http://127.0.0.1:8000/v1/audio/transcriptions'
-)
-llm_service = LmmOllamaRemote(
-    model='llama3.2:1b',
-    host="http://127.0.0.1:11434",
-)
+factory = ServantFactory()
 
 def title(msg):
     print("###########################################################################################################")
@@ -33,14 +20,14 @@ def title(msg):
 @action(reads=[], writes=["voice_buffer"])
 def get_user_speak_input(state: State) -> Tuple[dict, State]:
     # block until wake word has been said
-    audio_buffer = record_request.listen_for_wake_word()
+    audio_buffer = factory.va_provider.listen_for_wake_word()
     title(f"get_user_speak_input")
     return {"voice_buffer": audio_buffer}, state.update(voice_buffer=audio_buffer)
 
 @action(reads=["voice_buffer"], writes=["prompt","prompt_len"])
 def transcribe_voice_recording(state: State) -> Tuple[dict, State]:
     audio_buffer = state.get("voice_buffer")
-    transcription = stt_service.transcribe(audio_buffer)
+    transcription = factory.stt_provider.transcribe(audio_buffer)
     title(f"transcribe_voice_recording: {transcription}")
     return {"prompt": transcription, "prompt_len": len(str(transcription).strip())}, state.update(prompt=transcription).update(prompt_len=len(str(transcription).strip()))
 
@@ -48,7 +35,7 @@ def transcribe_voice_recording(state: State) -> Tuple[dict, State]:
 def we_did_not_understand(state: State) -> Tuple[dict, State]:
     message = "Ich habe dich leider nicht verstanden. Sag es noch mal."
     title(message)
-    voice_buffer = record_request.start_recording()
+    voice_buffer = factory.va_provider.start_recording()
     return {"voice_buffer": voice_buffer}, state.update(voice_buffer=voice_buffer)
 
 @action(reads=["chat_history"], writes=["prompt", "chat_history"])
@@ -63,7 +50,7 @@ def human_input(state: State) -> Tuple[dict, State]:
 @action(reads=["prompt"], writes=["exit_chat"])
 def exit_chat_check(state: State) -> Tuple[dict, State]:
     prompt = state.get("prompt")
-    is_ending = llm_service.is_conversation_ending(prompt)
+    is_ending = factory.llm_provider.is_conversation_ending(prompt)
     title(f"exit_chat_check: {is_ending}")
     return {"exit_chat": is_ending}, state.update(exit_chat=is_ending)
 
@@ -76,7 +63,7 @@ def exit_chat(state: State) -> Tuple[dict, State]:
 @action(reads=["chat_history"], writes=["response", "chat_history"])
 def ai_response(state: State) -> Tuple[dict, State]:
     # give the history including the last user input to the LLM to get its response
-    response_stream = llm_service.chat_stream(state["chat_history"])
+    response_stream = factory.llm_provider.chat_stream(state["chat_history"])
     response = ''
     print("KI: ", end='', flush=True)
     # consume the stream and collect response while printing to console
@@ -91,13 +78,13 @@ def ai_response(state: State) -> Tuple[dict, State]:
         sentences = sent_tokenize(buffer)
         # process all full sentences (except incomplete)
         for sentence in sentences[:-1]:
-            tts_service.speak(sentence)
+            factory.tts_provider.speak(sentence)
             sentences_all.append(sentence)
         # store last (maybe incomplete) sentence in the buffer
         buffer = sentences[-1]
     if len(buffer) > 2:
         # add last fragment of response
-        tts_service.speak(buffer)
+        factory.tts_provider.speak(buffer)
         sentences_all.append(buffer)
     # add response to the history to show to the use
     chat_item = {"content": response, "role": "assistant"}

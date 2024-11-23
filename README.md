@@ -37,3 +37,22 @@ pip3 install -r requirements.txt
 ```
 python3 main.py
 ```
+## Configuration
+
+The application uses ENV variables to configure all aspects of the application.
+When running local use a `.env` file, else set them as host environment variables.
+
+| variable                | default                                       | possible values          |
+|-------------------------|-----------------------------------------------|--------------------------|
+| TTS_ENDPOINT            | http://127.0.0.1:8000/v1/audio/transcriptions | any http endpoint        |
+| TTS_PROVIDER            | pyttsx                                        | pyttsx, transformers     |
+| STT_PROVIDER            | whisper                                       | whisper                  |
+| STT_ENDPOINT            | local                                         | local                    |
+| WAKEWORD_PROVIDER       | pyaudio                                       | pyaudio                  |
+| WAKEWORD_THRESHOLD      | 250                                           | any positive integer     |
+| WAKEWORD                | computer                                      | any word or short phrase |
+| AUDIO_PLAYBACK_DEVICE   | 0                                             | the device number        |
+| AUDIO_MICROPHONE_DEVICE | 0                                             | the device number        |
+| LLM_PROVIDER            | ollama                                        | ollama                   |
+| LLM_ENDPOINT            | http://127.0.0.1:11434                        | any http endpoint        |
+| LLM_PROVIDER_MODEL      | llama3.2:1b                                   | llama3.2:1b, llama3.2:3b |

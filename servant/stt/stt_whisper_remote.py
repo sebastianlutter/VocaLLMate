@@ -5,8 +5,9 @@ from servant.stt.stt_interface import SpeechToTextInterface
 
 class SpeechToTextWhisperRemote(SpeechToTextInterface):
 
-    def __init__(self, url = 'http://localhost:8000/v1/audio/transcriptions'):
-        self.url= url
+    def __init__(self):
+        super().__init__()
+        self.url= self.stt_endpoint
 
     def transcribe(self, audio_buffer):
         # setting stream to true makes the json parse fail
