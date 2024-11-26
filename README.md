@@ -21,7 +21,7 @@ use the script `stacks.sh` can be used to start and stop them.
 # Start stacks for CUDA/NVIDIA
 ./stacks.sh start cuda
 # Stop the stack
-./stacks.sj stop [cuda]
+./stacks.sh stop [cuda]
 ```
 
 ## The application
@@ -31,6 +31,10 @@ use the script `stacks.sh` can be used to start and stop them.
 python3 -mvenv venv
 source venv/bin/activate
 pip3 install -r requirements.txt
+```
+* Create a `.env` config file, adjust as needed
+```
+cp _env .env
 ```
 
 * Then run application
