@@ -16,12 +16,15 @@ use the script `stacks.sh` can be used to start and stop them.
 ```
 # Show status
 ./stacks.sh
-# Start stacks for CPU
+# Start stacks
 ./stacks.sh start
-# Start stacks for CUDA/NVIDIA
-./stacks.sh start cuda
-# Stop the stack
-./stacks.sh stop [cuda]
+# Stop stacks
+```
+The script automatically checks if nvidia/cuda is available. If so the `docker-compose-cuda.yaml` files are used (NVIDIA container). Else the cpu stacks in `docker-compose.yaml` are used. 
+
+To force the usage of cuda stacks you can also run:
+```
+./stacks.sh start
 ```
 
 ## The application
