@@ -2,7 +2,7 @@ import time
 import os
 import numpy as np
 from abc import ABC, abstractmethod
-from servant.audio_device.soundcard import SoundCard
+from servant.audio_device.soundcard_pyaudio import SoundCard
 
 
 class VoiceActivationInterface(ABC):
