@@ -4,6 +4,7 @@ Toy project to make tests with LLMs, tts, stt and graph based processing. Goal i
 The main idea is:
 * run all components as docker-compose ensembles and access them via API (LLM, TTS, STT).
 * use burr library to define application as a graph.
+* use german as the main language
 
 The application graph looks like this:
 ![Graph](./graph.png)
@@ -86,3 +87,8 @@ Build and run the dev docker and mount the project into the workdir:
 ```
 ./runDevDocker.sh
 ```
+
+## Links / unfinished stuff
+* https://github.com/matatonic/openedai-speech
+* https://github.com/DigitalPhonetics/IMS-Toucan
+* https://github.com/thorstenMueller/Thorsten-Voice
