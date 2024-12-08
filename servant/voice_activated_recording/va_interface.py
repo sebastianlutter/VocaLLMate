@@ -2,7 +2,7 @@ import time
 import os
 import numpy as np
 from abc import ABC, abstractmethod
-from servant.audio_device.soundcard_pyaudio import SoundCard
+from servant.audio_device.soundcard_factory import SoundcardFactory
 
 
 class VoiceActivationInterface(ABC):
@@ -13,7 +13,7 @@ class VoiceActivationInterface(ABC):
         self.wakeword_threshold = os.getenv('WAKEWORD_THRESHOLD', '250')
         # Configurable delay before counting silence
         self.silence_lead_time = 2
-        self.soundcard = SoundCard()
+        self.soundcard = SoundcardFactory()
 
 
     @abstractmethod
