@@ -7,6 +7,7 @@ class LmmInterface(ABC):
     def __init__(self):
         self.llm_endpoint=os.getenv('LLM_ENDPOINT', 'http://127.0.0.1:11434')
         self.llm_provider_model=os.getenv('LLM_PROVIDER_MODEL', 'llama3.2:1b')
+        self.system_prompt=os.getenv('SYSTEM_PROMPT', 'Beantworte die Fragen als freundlicher und zuvorkommender Helfer. Antworte so kurz wie möglich und stelle Gegenfragen wenn der Sachverhalt unklar ist.')
 
     @abstractmethod
     def chat(self, text: str, stream: bool = False):

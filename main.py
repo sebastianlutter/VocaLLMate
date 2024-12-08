@@ -124,7 +124,8 @@ def application():
             # after AI has answered go back to wait for wakeup word to record again
             ("ai_response", "get_user_speak_input"),
         )
-        .with_state(chat_history=[], exit_chat=False)
+        # init the chat history with the system prompt
+        .with_state(chat_history=[{"content": factory.llm_provider.system_prompt, "role": "assistant"}], exit_chat=False)
         .with_entrypoint("get_user_speak_input")
         .with_tracker("local", project="servant-llm")
         .build()

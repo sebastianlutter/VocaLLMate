@@ -15,3 +15,4 @@ AUDIO_PYTHON_BACKEND=pyaudio
 LLM_PROVIDER=ollama
 LLM_ENDPOINT=http://127.0.0.1:11434
 LLM_PROVIDER_MODEL=llama3.2:1b
+SYSTEM_PROMPT=Beantworte die Fragen als freundlicher und zuvorkommender Helfer. Antworte so kurz wie möglich und stelle Gegenfragen wenn der Sachverhalt unklar ist.
