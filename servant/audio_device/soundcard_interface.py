@@ -7,10 +7,10 @@ class AudioInterface(ABC):
     def __init__(self):
         self.frames_per_buffer = 1024
         # Read environment variables
-        self.audio_microphone_device = int(os.getenv('AUDIO_MICROPHONE_DEVICE', '0'))
+        self.audio_microphone_device = int(os.getenv('AUDIO_MICROPHONE_DEVICE', '-1'))
         if self.audio_microphone_device < 0:
             self.audio_microphone_device = None
-        self.audio_playback_device = int(os.getenv('AUDIO_PLAYBACK_DEVICE', '0'))
+        self.audio_playback_device = int(os.getenv('AUDIO_PLAYBACK_DEVICE', '-1'))
         if self.audio_playback_device < 0:
             self.audio_playback_device = None
 

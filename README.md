@@ -55,8 +55,8 @@ When running local use a `.env` file, else set them as host environment variable
 | WAKEWORD_PROVIDER       | speech-recognition                                                                                                                                     | speech-recognition, open-wakeword        |
 | WAKEWORD_THRESHOLD      | 250                                                                                                                                                    | any positive integer                     |
 | WAKEWORD                | computer                                                                                                                                               | any word or short phrase                 |
-| AUDIO_PLAYBACK_DEVICE   | 0                                                                                                                                                      | the device number, negative means "auto" |
-| AUDIO_MICROPHONE_DEVICE | 0                                                                                                                                                      | the device number, negative means "auto" |
+| AUDIO_PLAYBACK_DEVICE   | -1                                                                                                                                                     | the device number, negative means "auto" |
+| AUDIO_MICROPHONE_DEVICE | -1                                                                                                                                                     | the device number, negative means "auto" |
 | AUDIO_PYTHON_BACKEND    | pyaudio                                                                                                                                                | pyaudio, pyalsaaudio                     | 
 | LLM_PROVIDER            | ollama                                                                                                                                                 | ollama                                   |
 | LLM_ENDPOINT            | http://127.0.0.1:11434                                                                                                                                 | any http endpoint                        |
@@ -70,3 +70,9 @@ cp _env .env
 
 If no `.env` is found and no environment variables are set then the defaults are used. You need to provide only the
 settings you want to overwrite.
+
+When using `transformers` in `TTS_PROVIDER` these additional dependencies need to be installed:
+```
+pip3 install transformers==4.47.0
+pip3 install torch torchvision torchaudio
+```
