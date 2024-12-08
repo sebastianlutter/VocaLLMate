@@ -1,7 +1,7 @@
 import os
 
 def VoiceActivatedRecordingFactory():
-    provider_name=os.getenv('WAKEWORD_PROVIDER')
+    provider_name=os.getenv('WAKEWORD_PROVIDER', 'speech-recognition')
     match provider_name:
         case 'speech-recognition':
             from servant.voice_activated_recording.va_speech_recognition import SpeechRecognitionActivated

@@ -1,7 +1,7 @@
 import os
 
 def TtsFactory():
-    provider_name=os.getenv('TTS_PROVIDER')
+    provider_name=os.getenv('TTS_PROVIDER', 'pyttsx')
     match provider_name:
         case 'pyttsx':
             from servant.tts.tts_pyttsx import TextToSpeechPyTtsx

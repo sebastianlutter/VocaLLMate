@@ -1,7 +1,7 @@
 import os
 
 def SttFactory():
-    provider_name=os.getenv('STT_PROVIDER')
+    provider_name=os.getenv('STT_PROVIDER', 'whisper')
     match provider_name:
         case 'whisper':
             from servant.stt.stt_whisper_remote import SpeechToTextWhisperRemote

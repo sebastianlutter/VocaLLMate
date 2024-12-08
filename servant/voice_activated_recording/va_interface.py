@@ -9,8 +9,8 @@ class VoiceActivationInterface(ABC):
 
     def __init__(self):
         super().__init__()
-        self.wakeword = os.getenv('WAKEWORD')
-        self.wakeword_threshold = os.getenv('WAKEWORD_THRESHOLD')
+        self.wakeword = os.getenv('WAKEWORD', 'computer')
+        self.wakeword_threshold = os.getenv('WAKEWORD_THRESHOLD', '250')
         # Configurable delay before counting silence
         self.silence_lead_time = 2
         self.soundcard = SoundCard()

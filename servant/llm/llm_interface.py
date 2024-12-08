@@ -5,8 +5,8 @@ from abc import ABC, abstractmethod
 class LmmInterface(ABC):
 
     def __init__(self):
-        self.llm_endpoint=os.getenv('LLM_ENDPOINT')
-        self.llm_provider_model=os.getenv('LLM_PROVIDER_MODEL')
+        self.llm_endpoint=os.getenv('LLM_ENDPOINT', 'http://127.0.0.1:11434')
+        self.llm_provider_model=os.getenv('LLM_PROVIDER_MODEL', 'llama3.2:1b')
 
     @abstractmethod
     def chat(self, text: str, stream: bool = False):

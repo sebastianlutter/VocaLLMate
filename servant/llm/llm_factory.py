@@ -1,7 +1,7 @@
 import os
 
 def LmmFactory():
-    provider_name=os.getenv('LLM_PROVIDER')
+    provider_name=os.getenv('LLM_PROVIDER', 'ollama')
     match provider_name:
         case 'ollama':
             from servant.llm.llm_ollama_remote import LmmOllamaRemote

@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 class TextToSpeechInterface(ABC):
 
     def __init__(self):
-        self.tts_endpoint = os.getenv('TTS_ENDPOINT')
+        self.tts_endpoint = os.getenv('TTS_ENDPOINT', 'http://127.0.0.1:8000/v1/audio/transcriptions')
         # a queue for the sentences to say
         self.queue = queue.Queue()
         # Create a thread for the speak_loop
