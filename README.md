@@ -16,12 +16,16 @@ use the script `stacks.sh` can be used to start and stop them.
 ```
 # Show status
 ./stacks.sh
-# Start stacks for CPU
+# Start stacks
 ./stacks.sh start
-# Start stacks for CUDA/NVIDIA
-./stacks.sh start cuda
-# Stop the stack
-./stacks.sj stop [cuda]
+# Stop stacks
+./stacks.sh stop
+```
+The script automatically checks if nvidia/cuda is available. If so the `docker-compose-cuda.yaml` files are used (NVIDIA container). Else the cpu stacks in `docker-compose.yaml` are used. 
+
+To force the usage of cuda stacks you can also run:
+```
+./stacks.sh start
 ```
 
 ## The application
@@ -31,6 +35,10 @@ use the script `stacks.sh` can be used to start and stop them.
 python3 -mvenv venv
 source venv/bin/activate
 pip3 install -r requirements.txt
+```
+* Create a `.env` config file, adjust as needed
+```
+cp _env .env
 ```
 
 * Then run application
@@ -56,3 +64,4 @@ When running local use a `.env` file, else set them as host environment variable
 | LLM_PROVIDER            | ollama                                        | ollama                                   |
 | LLM_ENDPOINT            | http://127.0.0.1:11434                        | any http endpoint                        |
 | LLM_PROVIDER_MODEL      | llama3.2:1b                                   | llama3.2:1b, llama3.2:3b                 |
+
