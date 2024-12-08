@@ -53,5 +53,9 @@ class AudioInterface(ABC):
         """
         pass
 
+    @abstractmethod
+    def play_audio(self, sample_rate, audio_buffer):
+        pass
+
     def config_str(self):
         return f'Soundcard device: microphone={self.audio_microphone_device}, playback: {self.audio_playback_device}'

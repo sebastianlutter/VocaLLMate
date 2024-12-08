@@ -1,6 +1,7 @@
 import pyaudio
 import wave
 import os
+import numpy as np
 from io import BytesIO
 from servant.audio_device.soundcard_interface import AudioInterface
 
@@ -130,3 +131,27 @@ class SoundCard(AudioInterface):
                 return
         raise Exception("No suitable default playback device found.")
 
+    def play_audio(self, sample_rate: int, audio_array: np.ndarray):
+        """
+        Plays the audio array at the given sample_rate using PyAudio.
+        """
+        p = pyaudio.PyAudio()
+        # PyAudio format for float32
+        audio_format = pyaudio.paFloat32
+        channels = 1  # Bark outputs mono audio
+        stream = p.open(
+            format=audio_format,
+            channels=channels,
+            rate=sample_rate,
+            output=True,
+            output_device_index=self.audio_playback_device
+        )
+        # Ensure numpy array is float32
+        if audio_array.dtype != np.float32:
+            audio_array = audio_array.astype(np.float32)
+        # Convert to raw bytes for PyAudio
+        audio_data = audio_array.tobytes()
+        stream.write(audio_data)
+        stream.stop_stream()
+        stream.close()
+        p.terminate()
