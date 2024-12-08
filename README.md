@@ -36,12 +36,8 @@ python3 -mvenv venv
 source venv/bin/activate
 pip3 install -r requirements.txt
 ```
-* Create a `.env` config file, adjust as needed
-```
-cp _env .env
-```
 
-* Then run application
+* Then run application (default configuration is used then, see below)
 ```
 python3 main.py
 ```
@@ -66,3 +62,7 @@ When running local use a `.env` file, else set them as host environment variable
 | LLM_ENDPOINT            | http://127.0.0.1:11434                        | any http endpoint                        |
 | LLM_PROVIDER_MODEL      | llama3.2:1b                                   | llama3.2:1b, llama3.2:3b                 |
 
+* Create a `.env` config file from the given example and adjust as needed
+```
+cp _env .env
+```
