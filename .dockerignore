@@ -35,10 +35,6 @@ build/
 .DS_Store
 Thumbs.db
 
-# Ignore environment variable files
-.env
-.env.*
-
 # Ignore Docker-related files
 Dockerfile
 docker-compose.yml
