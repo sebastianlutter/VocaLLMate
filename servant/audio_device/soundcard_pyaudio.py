@@ -5,19 +5,16 @@ from io import BytesIO
 from servant.audio_device.soundcard_interface import AudioInterface
 
 class SoundCard(AudioInterface):
+    
     def __init__(self):
+        super().__init__()
         # Create an interface to PortAudio
         self.audio = pyaudio.PyAudio()
-        self.frames_per_buffer = 1024
-
-        # Attempt to read environment variables for microphone and playback devices
-        # Fallback to 0 if not set.
-        self.audio_microphone_device = int(os.getenv('AUDIO_MICROPHONE_DEVICE', '0'))
-        if self.audio_microphone_device < 0:
-            self.audio_playback_device = None
-        self.audio_playback_device = int(os.getenv('AUDIO_PLAYBACK_DEVICE', '0'))
-        if self.audio_playback_device < 0:
-            self.audio_playback_device = None
+        # if device number is set to None then automatically choose an index
+        if self.audio_playback_device is None:
+            self.choose_default_playback()
+        if self.audio_microphone_device is None:
+            self.choose_default_microphone()
         # Validate microphone device index
         if not self.is_valid_device_index(self.audio_microphone_device, input_device=True):
             print("Available devices:")
@@ -28,6 +25,7 @@ class SoundCard(AudioInterface):
             print("Available devices:")
             self.list_devices()
             raise Exception(f"Error: The playback device index '{self.audio_playback_device}' is invalid or not available.")
+        # Attempt to read environment variables for microphone and playback devices
         print("Available devices:")
         self.list_devices()
         print(f"Loading device: microphone={self.audio_microphone_device}, playback={self.audio_playback_device}")
@@ -107,4 +105,28 @@ class SoundCard(AudioInterface):
         byte_io.seek(0)  # Reset buffer pointer to the beginning
         return byte_io
 
+    def choose_default_microphone(self):
+        """Automatically chooses an input device whose name contains 'default'."""
+        device_count = self.audio.get_device_count()
+        for i in range(device_count):
+            info = self.audio.get_device_info_by_index(i)
+            name = info['name'].lower()
+            if "default" == name and info['maxInputChannels'] > 0:
+                self.audio_microphone_device = i
+                print(f"Chosen default input device: {self.audio_microphone_device} ({info['name']})")
+                return
+        raise Exception("No suitable default microphone device found.")
+
+
+    def choose_default_playback(self):
+        """Automatically chooses an output device whose name contains 'default'."""
+        device_count = self.audio.get_device_count()
+        for i in range(device_count):
+            info = self.audio.get_device_info_by_index(i)
+            name = info['name'].lower()
+            if "default" == name and info['maxOutputChannels'] > 0:
+                self.audio_playback_device = i
+                print(f"Chosen default output device: {self.audio_playback_device} ({info['name']})")
+                return
+        raise Exception("No suitable default playback device found.")
 

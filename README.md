@@ -52,10 +52,10 @@ When running local use a `.env` file, else set them as host environment variable
 
 | variable                | default                                       | possible values                          |
 |-------------------------|-----------------------------------------------|------------------------------------------|
-| TTS_ENDPOINT            | http://127.0.0.1:8000/v1/audio/transcriptions | any http endpoint                        |
+| TTS_ENDPOINT            | local                                         | any http endpoint                        |
 | TTS_PROVIDER            | pyttsx                                        | pyttsx, transformers                     |
 | STT_PROVIDER            | whisper                                       | whisper                                  |
-| STT_ENDPOINT            | local                                         | local                                    |
+| STT_ENDPOINT            | http://127.0.0.1:8000/v1/audio/transcriptions | local                                    |
 | WAKEWORD_PROVIDER       | speech-recognition                            | speech-recognition, open-wakeword        |
 | WAKEWORD_THRESHOLD      | 250                                           | any positive integer                     |
 | WAKEWORD                | computer                                      | any word or short phrase                 |
