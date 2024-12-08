@@ -74,5 +74,15 @@ settings you want to overwrite.
 When using `transformers` in `TTS_PROVIDER` these additional dependencies need to be installed:
 ```
 pip3 install transformers==4.47.0
-pip3 install torch torchvision torchaudio
+pip3 install torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1
+```
+
+## Docker environment with PyTorch 2.5.1 GPU support
+
+There is a development docker to run the application in a pytorch enabled environment with GPU support. The `Dockerfile`
+and `runDevDocker.sh` script can be used for this purpose. 
+
+Build and run the dev docker and mount the project into the workdir:
+```
+./runDevDocker.sh
 ```
