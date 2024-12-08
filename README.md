@@ -61,6 +61,7 @@ When running local use a `.env` file, else set them as host environment variable
 | WAKEWORD                | computer                                      | any word or short phrase                 |
 | AUDIO_PLAYBACK_DEVICE   | 0                                             | the device number, negative means "auto" |
 | AUDIO_MICROPHONE_DEVICE | 0                                             | the device number, negative means "auto" |
+| AUDIO_PYTHON_BACKEND    | pyaudio                                       | pyaudio, pyalsaaudio                     | 
 | LLM_PROVIDER            | ollama                                        | ollama                                   |
 | LLM_ENDPOINT            | http://127.0.0.1:11434                        | any http endpoint                        |
 | LLM_PROVIDER_MODEL      | llama3.2:1b                                   | llama3.2:1b, llama3.2:3b                 |

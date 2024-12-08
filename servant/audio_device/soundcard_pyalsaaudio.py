@@ -6,25 +6,9 @@ from servant.audio_device.soundcard_interface import AudioInterface
 
 class SoundCard(AudioInterface):
     def __init__(self):
+        super().__init__()
         self.frames_per_buffer = 1024
         self.devices = self._enumerate_devices()
-
-        # Read environment variables
-        self.audio_microphone_device = int(os.getenv('AUDIO_MICROPHONE_DEVICE', '0'))
-        self.audio_playback_device = int(os.getenv('AUDIO_PLAYBACK_DEVICE', '0'))
-
-        # Validate microphone device index
-        if not self.is_valid_device_index(self.audio_microphone_device, input_device=True):
-            print("Available devices:")
-            self.list_devices()
-            raise Exception(f"Error: The microphone device index '{self.audio_microphone_device}' is invalid or not available.")
-
-        # Validate playback device index
-        if not self.is_valid_device_index(self.audio_playback_device, input_device=False):
-            print("Available devices:")
-            self.list_devices()
-            raise Exception(f"Error: The playback device index '{self.audio_playback_device}' is invalid or not available.")
-
         print("Available devices:")
         self.list_devices()
         print(f"Loading device: microphone={self.audio_microphone_device}, playback={self.audio_playback_device}")
