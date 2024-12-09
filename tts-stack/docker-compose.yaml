@@ -1,0 +1,20 @@
+name: tts-stack
+# TODO: https://docs.astral.sh/uv/guides/integration/docker/#configuring-watch-with-docker-compose
+services:
+
+#
+# Dummy, not implemented yet
+#
+  open-faas-tts:
+    image: nginx
+    restart: unless-stopped
+    ports:
+      - 80:80
+    environment:
+      - Http_X_Language=de_de
+    networks:
+      - servant-net
+
+networks:
+  servant-net:
+    external: true
