@@ -5,7 +5,7 @@ services:
 #
 # Dummy, not implemented yet
 #
-  open-faas-tts:
+  dummy-tts:
     image: nginx
     restart: unless-stopped
     ports:

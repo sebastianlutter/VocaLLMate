@@ -6,7 +6,10 @@ def SttFactory():
         case 'whisper':
             from servant.stt.stt_whisper_remote import SpeechToTextWhisperRemote
             p = SpeechToTextWhisperRemote()
-            print(f"SttFactory: start whisper remote provider. {p.config_str()}")
-            return p
+        case 'speech-recognition':
+            from servant.stt.stt_speech_recognition_local import SpeechToTextSpeechRecognitionLocal
+            p = SpeechToTextSpeechRecognitionLocal()
         case _:
             raise Exception(f"SttFactory: unknown provider name {provider_name}")
+    print(f"SttFactory: start {provider_name} provider. {p.config_str()}")
+    return p

@@ -51,8 +51,8 @@ When running local use a `.env` file, else set them as host environment variable
 |-------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------|
 | TTS_ENDPOINT            | local                                                                                                                                                  | any http endpoint                        |
 | TTS_PROVIDER            | pyttsx                                                                                                                                                 | pyttsx, transformers                     |
-| STT_PROVIDER            | whisper                                                                                                                                                | whisper                                  |
-| STT_ENDPOINT            | http://127.0.0.1:8000/v1/audio/transcriptions                                                                                                          | local                                    |
+| STT_PROVIDER            | whisper                                                                                                                                                | whisper, speech-recognition              |
+| STT_ENDPOINT            | http://127.0.0.1:8000/v1/audio/transcriptions                                                                                                          | url if remote service has been chosen    |
 | WAKEWORD_PROVIDER       | speech-recognition                                                                                                                                     | speech-recognition, open-wakeword        |
 | WAKEWORD_THRESHOLD      | 250                                                                                                                                                    | any positive integer                     |
 | WAKEWORD                | computer                                                                                                                                               | any word or short phrase                 |
@@ -93,6 +93,19 @@ for voice in voices:
     print(f"Name: {voice.name}")
     print(f"Languages: {voice.languages}")
     print("------")
+```
+
+## speech-recognition backend vosk
+The SpeechRecognition package supports multiple online and offline backends. This project uses the VOSK offline
+backend. First a model needs to be downloaded from https://alphacephei.com/vosk/models
+* For a slim model use https://alphacephei.com/vosk/models/vosk-model-small-de-0.15.zip
+* For a good balance use https://alphacephei.com/vosk/models/vosk-model-de-0.21.zip
+* Best quality use https://alphacephei.com/vosk/models/vosk-model-de-tuda-0.6-900k.zip
+
+Extract the ZIP in project root and rename the extracted filename to `model/` so VOSK is able to find it.
+```
+unzip vosk-model-de-0.21.zip 
+mv vosk-model-de-0.21 model
 ```
 
 ## PyTorch and Transformers

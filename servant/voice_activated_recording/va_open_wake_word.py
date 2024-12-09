@@ -4,7 +4,11 @@ from openwakeword.model import Model
 from servant.voice_activated_recording.va_interface import VoiceActivationInterface
 from io import BytesIO
 import time
-from numpy import np
+import numpy as np
+
+#
+# Totally unfinshed and untested
+#
 
 model_path = '/path/to/model'
 inference_framework = 'tflite'

@@ -1,3 +1,5 @@
+import time
+
 import nltk
 import random
 from nltk.tokenize import sent_tokenize
@@ -99,9 +101,18 @@ def ai_response(state: State) -> Tuple[dict, State]:
     # add response to the history to show to the use
     chat_item = {"content": response, "role": "assistant"}
     print()
-    title(f"ai_response finished")
-    for s in sentences_all:
-        print(f"Sentence: {s}")
+    title(f"ai_response finished, wait for speaking is done")
+    # Stop if we do not speak for a second
+    counter_not_speaking=0
+    while True:
+        if not factory.tts_provider.still_speaking:
+            counter_not_speaking+=1
+        if counter_not_speaking > 15:
+            break
+        time.sleep(0.1)
+    title(f"ai_repsonse: speaking has finished")
+    #for s in sentences_all:
+    #    print(f"Sentence: {s}")
     return {"response": response}, state.update(response=response).append(chat_history=chat_item)
 
 def application():
