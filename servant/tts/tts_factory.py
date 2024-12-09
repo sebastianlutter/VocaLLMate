@@ -4,8 +4,9 @@ def TtsFactory():
     provider_name=os.getenv('TTS_PROVIDER', 'pyttsx')
     match provider_name:
         case 'pyttsx':
-            from servant.tts.tts_pyttsx import TextToSpeechPyTtsx
-            p = TextToSpeechPyTtsx()
+            from servant.tts.tts_pyttsx import TextToSpeechPyTtsx, TextToSpeechEspeakCli
+            #p = TextToSpeechPyTtsx()
+            p = TextToSpeechEspeakCli()
             print(f"TtsFactory: start pyttsx provider. {p.config_str()}")
             return p
         case 'transformers':

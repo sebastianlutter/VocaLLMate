@@ -1,36 +1,47 @@
+from threading import Thread
+import subprocess
 from servant.tts.tts_interface import TextToSpeechInterface
 import pyttsx3
-import time
 
 
 class TextToSpeechPyTtsx(TextToSpeechInterface):
-
-    def __init__(self, voice_rate=150, voice='German'):
+    """
+    Using espeak via pyttsx3. This fails to recognize the mbrola voices, so only the bad default voice works well
+    """
+    def __init__(self, voice_rate=120, voice='German'):
         super().__init__()
-        self.engine = pyttsx3.init()  # object creation
+        self.engine = pyttsx3.init(debug=True, )  # object creation
         self.engine.setProperty('rate', voice_rate)  # setting up new voice rate
-        #self.engine.setProperty('volume', 1.0)  # setting up volume level  between 0 and 1
         self.engine.setProperty('voice', 'German')
+        #self.engine.setProperty('voice', 'mb-de5')
 
     def speak_sentence(self, sentence: str):
+        return Thread(target=self.say_and_wait, args=(sentence, ))
+
+    def say_and_wait(self, sentence):
         self.engine.say(sentence)
         self.engine.runAndWait()
 
-    def speak_loop(self):
-        while True:
-            sentence = self.queue.get()
-            #print(f"Got sentence: {sentence}")
-            self.engine.say(sentence)
-            self.engine.runAndWait()
-            # wait to have a small gap after each sentence
-            time.sleep(1.2)
 
-    def show_voices(self):
-        engine = pyttsx3.init()
-        for voice in engine.getProperty('voices'):
-            print(f"{voice.id}\t{voice.languages}\t{voice.gender}")
+class TextToSpeechEspeakCli(TextToSpeechInterface):
+    """
+    Alternative version of using espeak directly using CLI tools
+    """
+    def __init__(self, voice_rate=110, voice='mb-de5'):
+        super().__init__()
+        self.voice_rate = voice_rate
+        self.voice = voice
 
-if __name__ == '__main__':
-    tts = TextToSpeechPyTtsx()
-    tts.show_voices()
-    tts.speak("Das ist ein test. This is a test.")
+    def speak_sentence(self, sentence: str):
+        # Returns a thread that will execute say_and_wait asynchronously
+        return Thread(target=self.say_and_wait, args=(sentence, ))
+
+    def say_and_wait(self, sentence):
+        # Use espeak via subprocess to speak the sentence
+        # -v <voice> sets the voice; -s <speed> sets the speaking rate
+        subprocess.run([
+            'espeak',
+            '-v', self.voice,
+            '-s', str(self.voice_rate),
+            sentence
+        ], check=True)

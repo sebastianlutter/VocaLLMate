@@ -72,6 +72,31 @@ cp _env .env
 If no `.env` is found and no environment variables are set then the defaults are used. You need to provide only the
 settings you want to overwrite.
 
+## PyTTSX
+
+The pyttsx package can use multiple backends from the host linux system for text-to-speech synthesis. Consider 
+to install the following:
+```
+apt install espeak ffmpeg libespeak1
+# german voices that replace the mechanical one that espeak ships with
+apt install mbrola mbrola-de1 mbrola-de2 mbrola-de3 mbrola-de4 mbrola-de5 mbrola-de6 mbrola-de7 mbrola-de8
+```
+
+You can list the available voices on your host system with:
+```
+import pyttsx3
+
+engine = pyttsx3.init()
+voices = engine.getProperty('voices')
+for voice in voices:
+    print(f"ID: {voice.id}")
+    print(f"Name: {voice.name}")
+    print(f"Languages: {voice.languages}")
+    print("------")
+```
+
+## PyTorch and Transformers
+
 When using `transformers` in `TTS_PROVIDER` these additional dependencies need to be installed:
 ```
 pip3 install transformers==4.47.0

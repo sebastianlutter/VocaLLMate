@@ -7,7 +7,7 @@ class LmmInterface(ABC):
     def __init__(self):
         self.llm_endpoint=os.getenv('LLM_ENDPOINT', 'http://127.0.0.1:11434')
         self.llm_provider_model=os.getenv('LLM_PROVIDER_MODEL', 'llama3.2:1b')
-        self.system_prompt=os.getenv('SYSTEM_PROMPT', 'Beantworte die Fragen als freundlicher und zuvorkommender Helfer. Antworte so kurz wie möglich und stelle Gegenfragen wenn der Sachverhalt unklar ist.')
+        self.system_prompt=os.getenv('SYSTEM_PROMPT', 'Beantworte die Fragen als freundlicher und zuvorkommender Helfer. Antworte maximal mit 1 bis 3 kurzen Sätzen und stelle Gegenfragen wenn der Sachverhalt unklar ist.')
 
     @abstractmethod
     def chat(self, text: str, stream: bool = False):
@@ -17,7 +17,8 @@ class LmmInterface(ABC):
         # Define phrases that indicate the end of a conversation in both English and German
         end_phrases = [
             "stop chat", "end chat", "goodbye", "exit", "bye", "finish",
-            "halt stoppen", "chat beenden", "auf wiedersehen", "tschüss", "ende", "schluss"
+            "halt stoppen", "chat beenden", "auf wiedersehen", "tschüss", "ende", "schluss", "nicht mehr länger reden",
+            "fertig mit unserem Gespräch"
         ]
         # Use fuzzy matching to find the closest match to the input sentence and get the match score
         highest_match = process.extractOne(sentence.lower(), end_phrases)

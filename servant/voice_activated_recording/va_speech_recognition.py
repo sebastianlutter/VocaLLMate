@@ -19,7 +19,6 @@ class SpeechRecognitionActivated(VoiceActivationInterface):
             while True:
                 audio = self.recognizer.listen(source)
                 try:
-                    #transcript = self.recognizer.recognize_google(audio).lower()
                     transcript = self.recognizer.recognize_vosk(audio, 'de').lower()
                     print(f"SpeechRecognition: Got {transcript}")
                     if self.wake_word in transcript:

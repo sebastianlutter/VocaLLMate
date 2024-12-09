@@ -1,4 +1,5 @@
 import nltk
+import random
 from nltk.tokenize import sent_tokenize
 from typing import Tuple
 from burr.core import ApplicationBuilder, State, action, when, expr
@@ -7,10 +8,18 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-
 nltk.download('punkt_tab')
 
 factory = ServantFactory()
+
+def random_bye():
+    choices = [
+        "Auf Wiedersehen!", "Mach’s gut!", "Bis zum nächsten Mal!", "Tschüss!", "Ciao!", "Adieu!", "Schönen Tag noch!",
+        "Bis bald!", "Pass auf dich auf!", "Bleib gesund!", "Man sieht sich!", "Bis später!", "Bis dann!", "Gute Reise!",
+        "Viel Erfolg noch!", "Danke und tschüss!", "Alles Gute!", "Bis zum nächsten Treffen!",
+        "Leb wohl!"
+    ]
+    return random.choice(choices)
 
 def title(msg):
     print("###########################################################################################################")
@@ -33,8 +42,9 @@ def transcribe_voice_recording(state: State) -> Tuple[dict, State]:
 
 @action(reads=[], writes=["voice_buffer"])
 def we_did_not_understand(state: State) -> Tuple[dict, State]:
-    message = "Ich habe dich leider nicht verstanden. Sag es noch mal."
+    message = "Ich habe dich nicht verstanden. Sag es noch mal."
     title(message)
+    factory.tts_provider.speak(message)
     voice_buffer = factory.va_provider.start_recording()
     return {"voice_buffer": voice_buffer}, state.update(voice_buffer=voice_buffer)
 
@@ -57,7 +67,7 @@ def exit_chat_check(state: State) -> Tuple[dict, State]:
 @action(reads=[], writes=["chat_history"])
 def exit_chat(state: State) -> Tuple[dict, State]:
     title("exit_chat")
-    title("exit_chat")
+    factory.tts_provider.speak(f"Ich beende das Programm, {random_bye()}")
     return {"chat_history": []}, state.update(chat_history=[])
 
 @action(reads=["chat_history"], writes=["response", "chat_history"])

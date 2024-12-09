@@ -1,3 +1,5 @@
+from threading import Thread
+
 import torch
 import warnings
 import pyaudio
@@ -34,7 +36,9 @@ class TextToSpeechTransformer(TextToSpeechInterface):
         Synthesizes the sentence and plays it back using pyaudio.
         """
         sample_rate, audio_array = self.synthesize(sentence)
-        self.soundcard.play_audio(sample_rate, audio_array)
+        # create a thread to send audio to the soundcard
+        return Thread(target=self.soundcard.play_audio, args=(sample_rate, audio_array))
+
 
     def synthesize(self, text: str, voice_preset: str = "v2/de_speaker_1"):
         """
