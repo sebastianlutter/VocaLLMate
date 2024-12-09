@@ -1,3 +1,5 @@
+*,zip
+model/
 deploy.sh
 ### Python template
 *.wav
