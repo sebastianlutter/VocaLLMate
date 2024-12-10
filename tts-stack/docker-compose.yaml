@@ -5,15 +5,28 @@ services:
 #
 # Dummy, not implemented yet
 #
-  dummy-tts:
-    image: nginx
-    restart: unless-stopped
+  tts-server:
+    image: ghcr.io/matatonic/openedai-speech-min
+    #image: thorsten-voice-openedai-speech:latest
     ports:
-      - 80:80
+      - "8001:8000"
+    volumes:
+      - ./voices:/app/voices
+      - ./config:/app/config
     environment:
-      - Http_X_Language=de_de
-    networks:
-      - servant-net
+      TTS_HOME: "/app/voices"
+      HF_HOME: "/app/voices"
+      PRELOAD_MODEL: "tts_models/de/thorsten/vits"
+      LANGUAGE: "de_DE"
+      VOICE: "torsten-low"
+      PIPER_VOICE: "torsten-low"
+    command: ['python', 'speech.py', '--xtts_device', 'none']
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+          cpus: "1.0"
+
 
 networks:
   servant-net:
