@@ -1,6 +1,5 @@
 import speech_recognition as sr
-import numpy as np
-import time
+import json
 from servant.voice_activated_recording.va_interface import VoiceActivationInterface
 import io
 import wave
@@ -52,6 +51,7 @@ class SpeechRecognitionActivated(VoiceActivationInterface):
                 audio = self.recognizer.listen(source)
                 try:
                     transcript = self.recognizer.recognize_vosk(audio, 'de').lower()
+                    transcript = json.loads(transcript)['text']
                     print(f"SpeechRecognition: Got {transcript}")
                     if self.wake_word in transcript:
                         print(f"Wake word '{self.wake_word}' detected. Starting recording...")

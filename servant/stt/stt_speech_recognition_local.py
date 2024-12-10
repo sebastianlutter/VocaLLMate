@@ -18,5 +18,6 @@ class SpeechToTextSpeechRecognitionLocal(SpeechToTextInterface):
         # audio_buffer is a BytesIO object containing WAV data
         # Step 3: Now that we have AudioData, we can use recognize_vosk
         transcript = self.recognizer.recognize_vosk(audio_data, language='de').lower()
+        transcript = json.loads(transcript)['text']
         print("Transcript:", transcript)
         return transcript
