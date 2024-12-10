@@ -26,7 +26,7 @@ class VoiceActivationInterface(ABC):
         activated_sentences = ['ja', 'schiess los!', 'was gibts?', 'hi', 'leg los', 'was willst du?']
         return random.choice(activated_sentences)
 
-    def start_recording(self):
+    def start_recording(self, test = False):
         self.tts_provider.speak(self.random_hi())
         print("Recording...")
         stream = self.soundcard.get_record_stream()
@@ -38,6 +38,8 @@ class VoiceActivationInterface(ABC):
             if time.time() - record_start_time < self.silence_lead_time:
                 audio_frames.append(data)
             else:
+                if test:
+                    break
                 if self.is_silence(data):
                     silence_counter += 1
                 else:

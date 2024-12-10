@@ -155,3 +155,18 @@ class SoundCard(AudioInterface):
         stream.stop_stream()
         stream.close()
         p.terminate()
+
+
+    def play_frames(self, sample_rate, frames):
+        """
+        Takes a list of raw audio frame bytes, converts them to float32 numpy array,
+        and plays them back using the existing play_audio method.
+        """
+        # Combine the frames into one bytes object
+        all_data = b''.join(frames)
+        # Convert raw bytes (16-bit PCM) to int16 array
+        int16_data = np.frombuffer(all_data, dtype=np.int16)
+        # Convert int16 data to float32 and normalize from [-32768, 32767] to [-1, 1]
+        audio_float32 = int16_data.astype(np.float32) / 32768.0
+        # Now play the processed audio array
+        self.play_audio(sample_rate, audio_float32)

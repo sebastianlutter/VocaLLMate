@@ -6,6 +6,7 @@ class AudioInterface(ABC):
 
     def __init__(self):
         self.frames_per_buffer = 1024
+        self.sample_rate = 16000
         # Read environment variables
         self.audio_microphone_device = int(os.getenv('AUDIO_MICROPHONE_DEVICE', '-1'))
         if self.audio_microphone_device < 0:
@@ -55,6 +56,10 @@ class AudioInterface(ABC):
 
     @abstractmethod
     def play_audio(self, sample_rate, audio_buffer):
+        pass
+
+    @abstractmethod
+    def play_frames(self, sample_rate, audio_buffer):
         pass
 
     def config_str(self):
