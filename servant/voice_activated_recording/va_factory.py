@@ -3,6 +3,9 @@ import os
 def VoiceActivatedRecordingFactory():
     provider_name=os.getenv('WAKEWORD_PROVIDER', 'speech-recognition')
     match provider_name:
+        case 'whisper':
+            from servant.voice_activated_recording.va_whisper_remote import WhisperActivated
+            p = WhisperActivated()
         case 'speech-recognition':
             from servant.voice_activated_recording.va_speech_recognition import SpeechRecognitionActivated
             p = SpeechRecognitionActivated()

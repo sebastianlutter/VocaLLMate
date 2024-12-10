@@ -10,7 +10,6 @@ class SpeechRecognitionActivated(VoiceActivationInterface):
         super().__init__()
         self.wake_word = self.wakeword
         self.recognizer = sr.Recognizer()
-        self.silence_threshold = self.wakeword_threshold
         self.init()
 
     def init(self):
