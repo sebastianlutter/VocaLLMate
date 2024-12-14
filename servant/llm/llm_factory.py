@@ -1,6 +1,6 @@
 import os
 
-def LmmFactory():
+def LlmFactory():
     provider_name=os.getenv('LLM_PROVIDER', 'ollama')
     match provider_name:
         case 'ollama':

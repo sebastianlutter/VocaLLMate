@@ -1,3 +1,4 @@
+import os
 import time
 from dotenv import load_dotenv
 from servant.voice_activated_recording.va_factory import VoiceActivatedRecordingFactory

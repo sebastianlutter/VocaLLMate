@@ -1,4 +1,7 @@
-*,zip
+*.mp3
+*.ppn
+*.pv
+*.zip
 model/
 deploy.sh
 ### Python template

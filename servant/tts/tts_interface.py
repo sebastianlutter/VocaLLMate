@@ -10,7 +10,7 @@ import random
 class TextToSpeechInterface(ABC):
 
     def __init__(self):
-        self.tts_endpoint = os.getenv('TTS_ENDPOINT', 'local')
+        self.tts_endpoint = os.getenv('TTS_ENDPOINT', 'http://127.0.0.1:8001/v1')
         # a queue for the sentences to say
         self.queue = queue.Queue()
         # Create a thread for the speak_loop

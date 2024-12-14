@@ -19,7 +19,7 @@ class VoiceActivationInterface(ABC):
         self.tts_provider = TtsFactory()
 
     @abstractmethod
-    def listen_for_wake_word(self, sentence: str):
+    def listen_for_wake_word(self):
         pass
 
     def random_hi(self):

@@ -8,5 +8,5 @@ s=TtsFactory()
 s.speak("Ich bin ein langer Satz mit vielen Worten.")
 s.speak("Ich nicht.")
 
-time.sleep(5)
+time.sleep(10)
 

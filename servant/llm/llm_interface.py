@@ -16,9 +16,8 @@ class LmmInterface(ABC):
     def is_conversation_ending(self, sentence):
         # Define phrases that indicate the end of a conversation in both English and German
         end_phrases = [
-            "stop chat", "end chat", "goodbye", "exit", "bye", "finish",
-            "halt stoppen", "chat beenden", "auf wiedersehen", "tschüss", "ende", "schluss", "nicht mehr länger reden",
-            "fertig mit unserem Gespräch"
+            "stop chat", "exit", "bye", "finish",
+            "halt stoppen", "chat beenden", "auf wiedersehen", "tschüss", "ende", "schluss",
         ]
         # Use fuzzy matching to find the closest match to the input sentence and get the match score
         highest_match = process.extractOne(sentence.lower(), end_phrases)

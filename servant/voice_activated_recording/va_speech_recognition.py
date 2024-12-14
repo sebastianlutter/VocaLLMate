@@ -51,7 +51,7 @@ class SpeechRecognitionActivated(VoiceActivationInterface):
                 try:
                     transcript = self.recognizer.recognize_vosk(audio, 'de').lower()
                     transcript = json.loads(transcript)['text']
-                    print(f"SpeechRecognition: Got {transcript}")
+                    print(f"SpeechRecognition: {transcript}")
                     if self.wake_word in transcript:
                         print(f"Wake word '{self.wake_word}' detected. Starting recording...")
                         return self.start_recording()

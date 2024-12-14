@@ -49,8 +49,8 @@ When running local use a `.env` file, else set them as host environment variable
 
 | variable                | default                                                                                                                                                | possible values                          |
 |-------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------|
-| TTS_ENDPOINT            | local                                                                                                                                                  | any http endpoint                        |
-| TTS_PROVIDER            | pyttsx                                                                                                                                                 | pyttsx, transformers                     |
+| TTS_ENDPOINT            | http://127.0.0.1:8001/v1                                                                                                                               | any http endpoint                        |
+| TTS_PROVIDER            | openedai                                                                                                                                               | openedai, pyttsx, transformers           |
 | STT_PROVIDER            | whisper                                                                                                                                                | whisper, speech-recognition              |
 | STT_ENDPOINT            | http://127.0.0.1:8000/v1/audio/transcriptions                                                                                                          | url if remote service has been chosen    |
 | WAKEWORD_PROVIDER       | speech-recognition                                                                                                                                     | speech-recognition, open-wakeword        |

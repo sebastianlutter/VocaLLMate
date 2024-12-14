@@ -8,7 +8,7 @@ class TextToSpeechPyTtsx(TextToSpeechInterface):
     """
     Using espeak via pyttsx3. This fails to recognize the mbrola voices, so only the bad default voice works well
     """
-    def __init__(self, voice_rate=120, voice='German'):
+    def __init__(self, voice_rate=150, voice='German'):
         super().__init__()
         self.engine = pyttsx3.init(debug=True, )  # object creation
         self.engine.setProperty('rate', voice_rate)  # setting up new voice rate
@@ -27,7 +27,7 @@ class TextToSpeechEspeakCli(TextToSpeechInterface):
     """
     Alternative version of using espeak directly using CLI tools
     """
-    def __init__(self, voice_rate=110, voice='mb-de5'):
+    def __init__(self, voice_rate=150, voice='mb-de2'):
         super().__init__()
         self.voice_rate = voice_rate
         self.voice = voice
