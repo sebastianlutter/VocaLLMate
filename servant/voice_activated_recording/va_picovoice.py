@@ -11,7 +11,7 @@ class PorcupineWakeWord(VoiceActivationInterface):
         super().__init__()
         self.model_path=f'./{self.wakeword}_de_linux_v3_0_0.ppn'
         if not os.path.isfile(self.model_path):
-            print(f"Pivovoice model file is missing. Cannot find {self.model_path}")
+            print(f"Picovoice model file is missing. Cannot find {self.model_path}")
             print("Please make an account and download one: https://picovoice.ai/")
             sys.exit(0)
         self.porcupine = pvporcupine.create(
@@ -24,7 +24,7 @@ class PorcupineWakeWord(VoiceActivationInterface):
         self.audio_interface = pyaudio.PyAudio()
         self.stream = None
 
-    def listen_for_wake_word(self):
+    def listen_for_wake_word(self) -> None:
         try:
             print("Initializing audio stream...")
             self.stream = self.audio_interface.open(
@@ -41,7 +41,6 @@ class PorcupineWakeWord(VoiceActivationInterface):
                 result = self.porcupine.process(pcm)
                 if result >= 0:
                     print(f"Wake word '{self.wakeword}' detected!")
-                    self.start_recording()
                     break
         except KeyboardInterrupt:
             print("Exiting...")
@@ -51,6 +50,4 @@ class PorcupineWakeWord(VoiceActivationInterface):
                 self.stream.close()
             self.audio_interface.terminate()
 
-    def start_recording(self, test=False):
-        super().start_recording(test=test)
 

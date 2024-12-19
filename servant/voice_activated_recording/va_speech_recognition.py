@@ -1,3 +1,5 @@
+from typing import AsyncGenerator, Generator
+
 import speech_recognition as sr
 import json
 from servant.voice_activated_recording.va_interface import VoiceActivationInterface
@@ -41,7 +43,7 @@ class SpeechRecognitionActivated(VoiceActivationInterface):
         except sr.UnknownValueError:
             pass  # No actual words from silence expected
 
-    def listen_for_wake_word(self):
+    def listen_for_wake_word(self) -> Generator[bytes, None, None]:
         with sr.Microphone(device_index=self.soundcard.audio_microphone_device) as source:
             self.recognizer.adjust_for_ambient_noise(source)
             print("Listening for wake word...")

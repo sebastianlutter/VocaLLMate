@@ -1,6 +1,11 @@
+import time
+from typing import Generator, Callable, AsyncGenerator
+import queue
+import threading
 import pyaudio
 import wave
 import os
+import io
 import numpy as np
 from io import BytesIO
 from servant.audio_device.soundcard_interface import AudioInterface
@@ -9,6 +14,7 @@ class SoundCard(AudioInterface):
     
     def __init__(self):
         super().__init__()
+        self.sample_format: int = pyaudio.paInt16
         # Create an interface to PortAudio
         self.audio = pyaudio.PyAudio()
         # if device number is set to None then automatically choose an index
@@ -33,11 +39,18 @@ class SoundCard(AudioInterface):
         # Print chosen devices
         print(f"Chosen Microphone Device Index: {self.audio_microphone_device}")
         print(f"Chosen Playback Device Index: {self.audio_playback_device}")
+        # Setup for queued playback
+        self.playback_queue = queue.Queue()
+        self.playback_thread = None
+        self.playback_thread_lock = threading.Lock()
+        self.playback_stream = None
+        # stop signals
+        self.stop_signal_record = threading.Event()
+        self.stop_signal_playback = threading.Event()
 
     def list_devices(self):
         """List all microphone (input) and playback (output) devices in separate well-formed tables."""
         device_count = self.audio.get_device_count()
-
         # Separate devices into microphones and playback devices
         microphone_devices = []
         playback_devices = []
@@ -47,10 +60,8 @@ class SoundCard(AudioInterface):
                 microphone_devices.append((i, info))
             if info['maxOutputChannels'] > 0:
                 playback_devices.append((i, info))
-
         # Define table headers
         headers = ["Index", "Name", "Input Channels", "Output Channels", "Default Sample Rate"]
-
         # Print Microphone Devices
         print("\nMicrophone (Input) Devices:")
         print("-" * 85)
@@ -59,7 +70,6 @@ class SoundCard(AudioInterface):
         for idx, info in microphone_devices:
             print(f"| {idx:<5} | {info['name']:<30} | {info['maxInputChannels']:<14} | {info['maxOutputChannels']:<15} | {info['defaultSampleRate']:<19} |")
         print("-" * 85)
-
         # Print Playback Devices
         print("\nPlayback (Output) Devices:")
         print("-" * 85)
@@ -82,29 +92,28 @@ class SoundCard(AudioInterface):
             return False
         return True
 
-    def get_record_stream(self):
+    async def get_record_stream(self)  -> AsyncGenerator[bytes, None]:
         """Open a recording stream using the validated microphone device index if available."""
         if self.audio_microphone_device is None:
             raise RuntimeError("No valid microphone device configured. Please set a valid device index.")
-        return self.audio.open(
-            format=pyaudio.paInt16,
-            channels=1,
-            rate=16000,
-            input=True,
-            frames_per_buffer=self.frames_per_buffer,
-            input_device_index=self.audio_microphone_device
-        )
-
-    def get_audio_buffer(self, frames):
-        """Get a buffer with audio data as a WAV in-memory stream."""
-        byte_io = BytesIO()
-        with wave.open(byte_io, 'wb') as wf:
-            wf.setnchannels(1)
-            wf.setsampwidth(self.audio.get_sample_size(pyaudio.paInt16))
-            wf.setframerate(16000)
-            wf.writeframes(b''.join(frames))
-        byte_io.seek(0)  # Reset buffer pointer to the beginning
-        return byte_io
+        # reset stop signal
+        self.stop_signal_record.clear()
+        stream = self.audio.open(
+                format=self.sample_format,
+                channels=self.input_channels,
+                rate=self.sample_rate,
+                input=True,
+                frames_per_buffer=self.frames_per_buffer,
+                input_device_index=self.audio_microphone_device
+            )
+        try:
+            while not self.stop_signal_record.is_set():
+                # Read audio data from the microphone
+                yield stream.read(self.frames_per_buffer, exception_on_overflow=False)
+            print("soundcard_pyaudio.get_record_stream: while loop reading from microphone stopped")
+        finally:
+            stream.stop_stream()
+            stream.close()
 
     def choose_default_microphone(self):
         """Automatically chooses an input device whose name contains 'default'."""
@@ -118,7 +127,6 @@ class SoundCard(AudioInterface):
                 return
         raise Exception("No suitable default microphone device found.")
 
-
     def choose_default_playback(self):
         """Automatically chooses an output device whose name contains 'default'."""
         device_count = self.audio.get_device_count()
@@ -131,42 +139,84 @@ class SoundCard(AudioInterface):
                 return
         raise Exception("No suitable default playback device found.")
 
+    def _playback_worker(self):
+        """
+        This worker runs in a separate thread, pulling items from the queue and playing them.
+        It opens the playback stream when it encounters the first audio item and closes it after
+        the queue is empty and stop_signal is set or no more items remain.
+        """
+        try:
+            stream = None
+            while not self.stop_signal_playback.is_set():
+                try:
+                    # Wait for item with a timeout, so we can check stop_signal periodically
+                    item = self.playback_queue.get(timeout=0.01)
+                except queue.Empty:
+                    # No items currently, check if we should stop
+                    # Write a small silence buffer if the stream is open
+                    if stream is not None and not stream.is_stopped():
+                        silence = (np.zeros(22500, dtype=np.int32)).tobytes()
+                        stream.write(silence)
+                    continue
+                if item is None:  # A sentinel to stop
+                    break
+                sample_rate, audio_array = item
+                if stream is None:
+                    stream = self.audio.open(
+                        format=pyaudio.paFloat32,
+                        channels=1,
+                        rate=sample_rate,
+                        output=True,
+                        output_device_index=self.audio_playback_device
+                    )
+                    stream.start_stream()
+                # Ensure correct dtype
+                if audio_array.dtype != np.float32:
+                    audio_array = audio_array.astype(np.float32)
+                audio_data = audio_array.tobytes()
+                # Write data to stream
+                stream.write(audio_data)
+                self.playback_queue.task_done()
+        finally:
+            if stream is not None:
+                stream.stop_stream()
+                stream.close()
+
+    def start_playback_thread(self):
+        """Start the worker thread if not already started."""
+        with self.playback_thread_lock:
+            if self.playback_thread is None or not self.playback_thread.is_alive():
+                self.stop_signal_playback.clear()
+                self.playback_thread = threading.Thread(target=self._playback_worker, daemon=True)
+                self.playback_thread.start()
+
     def play_audio(self, sample_rate: int, audio_array: np.ndarray):
         """
-        Plays the audio array at the given sample_rate using PyAudio.
+        Enqueue the audio array at the given sample_rate for playback.
+        The actual playback happens in a separate worker thread.
         """
-        p = pyaudio.PyAudio()
-        # PyAudio format for float32
-        audio_format = pyaudio.paFloat32
-        channels = 1  # Bark outputs mono audio
-        stream = p.open(
-            format=audio_format,
-            channels=channels,
-            rate=sample_rate,
-            output=True,
-            output_device_index=self.audio_playback_device
-        )
-        # Ensure numpy array is float32
-        if audio_array.dtype != np.float32:
-            audio_array = audio_array.astype(np.float32)
-        # Convert to raw bytes for PyAudio
-        audio_data = audio_array.tobytes()
-        stream.write(audio_data)
-        stream.stop_stream()
-        stream.close()
-        p.terminate()
+        self.start_playback_thread()
+        self.playback_queue.put((sample_rate, audio_array))
 
+    def stop_playback(self):
+        """
+        Immediately stop playback, empty the queue, stop the worker thread, and set
+        everything in a safe state.
+        """
+        self.stop_signal_playback.set()
+        # Clear the queue
+        while not self.playback_queue.empty():
+            try:
+                self.playback_queue.get_nowait()
+                self.playback_queue.task_done()
+            except queue.Empty:
+                break
+        # Push a sentinel to ensure the thread stops
+        self.playback_queue.put(None)
+        if self.playback_thread is not None:
+            self.playback_thread.join()
+            self.playback_thread = None
 
-    def play_frames(self, sample_rate, frames):
-        """
-        Takes a list of raw audio frame bytes, converts them to float32 numpy array,
-        and plays them back using the existing play_audio method.
-        """
-        # Combine the frames into one bytes object
-        all_data = b''.join(frames)
-        # Convert raw bytes (16-bit PCM) to int16 array
-        int16_data = np.frombuffer(all_data, dtype=np.int16)
-        # Convert int16 data to float32 and normalize from [-32768, 32767] to [-1, 1]
-        audio_float32 = int16_data.astype(np.float32) / 32768.0
-        # Now play the processed audio array
-        self.play_audio(sample_rate, audio_float32)
+    def stop_recording(self):
+        self.stop_signal_record.set()
+

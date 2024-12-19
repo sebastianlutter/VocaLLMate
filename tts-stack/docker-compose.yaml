@@ -18,8 +18,10 @@ services:
       HF_HOME: "/app/voices"
       PRELOAD_MODEL: "tts_models/de/thorsten/vits"
       LANGUAGE: "de_DE"
-      VOICE: "torsten-low"
-      PIPER_VOICE: "torsten-low"
+      VOICE: "thorsten_emotional-medium"
+      PIPER_VOICE: "thorsten_emotional-medium"
+#      VOICE: "torsten-low"
+#      PIPER_VOICE: "torsten-low"
     command: ['python', 'speech.py', '--xtts_device', 'none']
     deploy:
       resources:

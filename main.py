@@ -1,161 +1,207 @@
+import threading
 import time
-
-import nltk
 import random
+import asyncio
+import nltk
+from threading import Event
 from nltk.tokenize import sent_tokenize
-from typing import Tuple
-from burr.core import ApplicationBuilder, State, action, when, expr
+from typing import Generator, List
+from typing import Tuple, Generator, Optional, AsyncGenerator
+from burr.core import ApplicationBuilder, State, when, expr
+from burr.core.action import streaming_action, action
+from servant.human_speech_agent import HumanSpeechAgent
 from servant.servant_factory import ServantFactory
 from dotenv import load_dotenv
+from enum import Enum
 
-load_dotenv()
+#
+# TODO: Directly start recording after wakeword, do not wait until websocket is connected
+# TODO: Make an external stop signal that is given to all components instead of each has a own (or maybe it makes sense)
+#
 
 nltk.download('punkt_tab')
 
-factory = ServantFactory()
+load_dotenv()
 
-def random_bye():
-    choices = [
-        "Auf Wiedersehen!", "Mach’s gut!", "Bis zum nächsten Mal!", "Tschüss!", "Ciao!", "Adieu!", "Schönen Tag noch!",
-        "Bis bald!", "Pass auf dich auf!", "Bleib gesund!", "Man sieht sich!", "Bis später!", "Bis dann!", "Gute Reise!",
-        "Viel Erfolg noch!", "Danke und tschüss!", "Alles Gute!", "Bis zum nächsten Treffen!",
-        "Leb wohl!"
-    ]
-    return random.choice(choices)
+class Mode(Enum):
+    EXIT=1
+    GARBAGE_INPUT=2
+    CHAT=3
+
+first_run = True
+factory = ServantFactory()
 
 def title(msg):
     print("###########################################################################################################")
     print(f"# {msg}")
     print("###########################################################################################################")
 
-@action(reads=[], writes=["voice_buffer"])
-def get_user_speak_input(state: State) -> Tuple[dict, State]:
-    # block until wake word has been said
-    audio_buffer = factory.va_provider.listen_for_wake_word()
-    title(f"get_user_speak_input")
-    return {"voice_buffer": audio_buffer}, state.update(voice_buffer=audio_buffer)
+@streaming_action(reads=[], writes=[])
+async def entry_point(state: State) -> AsyncGenerator[Tuple[dict, Optional[State]], None]:
+    """
+    This is a kind of init. And greed the user when everything is done
+    """
+    factory.human_speech_agent.say_init_greeting()
+    yield {}, state
 
-@action(reads=["voice_buffer"], writes=["prompt","prompt_len"])
-def transcribe_voice_recording(state: State) -> Tuple[dict, State]:
-    audio_buffer = state.get("voice_buffer")
-    transcription = factory.stt_provider.transcribe(audio_buffer)
-    title(f"transcribe_voice_recording: {transcription}")
-    return {"prompt": transcription, "prompt_len": len(str(transcription).strip())}, state.update(prompt=transcription).update(prompt_len=len(str(transcription).strip()))
+@streaming_action(reads=[], writes=["transcription_input"])
+async def get_user_speak_input(state: State, stop_signal: Event, wait_for_wakeword: bool = True) -> AsyncGenerator[Tuple[dict, Optional[State]], None]:
+    """
+    This action blocks until it detects the wakeword from the microphone stream. It then
+    passes data as wav byte stream to voice_buffer so it can be streamed to transcription
+    """
+    # wait for wakeword, then stream the wave to the STT provider and steam back the transcription
+    full_text = ''
+    async for text in factory.human_speech_agent.get_human_input(
+            ext_stop_signal=stop_signal,
+            wait_for_wakeword=wait_for_wakeword
+        ):
+        full_text += text
+        yield {"transcription_input": text}, None
+    title(f"get_user_speak_input: {full_text}")
+    # when all is done update state
+    yield {"transcription_input": full_text}, state.update(transcription_input=full_text)
 
-@action(reads=[], writes=["voice_buffer"])
-def we_did_not_understand(state: State) -> Tuple[dict, State]:
-    message = "Ich habe dich nicht verstanden. Sag es noch mal."
-    title(message)
-    factory.tts_provider.speak(message)
-    voice_buffer = factory.va_provider.start_recording()
-    return {"voice_buffer": voice_buffer}, state.update(voice_buffer=voice_buffer)
+@streaming_action(reads=["transcription_input"], writes=["mode"])
+async def choose_mode(state: State) -> AsyncGenerator[Tuple[dict, Optional[State]], None]:
+    # first of all collect the results from the stream (breaking stream here)
+    full_text = state["transcription_input"]
+    # now decide what we want to do
+    if len(full_text) < 15:
+        m = Mode.GARBAGE_INPUT
+    elif factory.llm_provider.is_conversation_ending(full_text):
+        m = Mode.EXIT
+    else:
+        m = Mode.CHAT
+    title(f"choose_mode: {m}")
+    yield {"mode": m}, state.update(mode=m)
 
-@action(reads=["chat_history"], writes=["prompt", "chat_history"])
-def human_input(state: State) -> Tuple[dict, State]:
-    # add the prompt to history
-    prompt = state.get("prompt")
-    print(f"User: {prompt}")
+@action(reads=["transcription_input"], writes=["prompt", "chat_history"])
+async def human_input(state: State) -> Tuple[dict, State]:
+    # add the prompt to history (we have no streaming yield, directly yield the final return)
+    prompt = state.get("transcription_input")
+    print(f"Human Input: {prompt}")
     chat_item = {"content": prompt, "role": "user"}
     title(f"human_input: {prompt}")
     return {"prompt": prompt}, state.update(prompt=prompt).append(chat_history=chat_item)
 
-@action(reads=["prompt"], writes=["exit_chat"])
-def exit_chat_check(state: State) -> Tuple[dict, State]:
-    prompt = state.get("prompt")
-    is_ending = factory.llm_provider.is_conversation_ending(prompt)
-    title(f"exit_chat_check: {is_ending}")
-    return {"exit_chat": is_ending}, state.update(exit_chat=is_ending)
+@action(reads=["transcription_input"], writes=["transcription_input"])
+def we_did_not_understand(state: State) -> Tuple[dict, State]:
+    title("We did not understand")
+    factory.tts_provider.speak("Das war unverständlich, noch mal bitte")
+    return {"transcription_input": ''}, state.update(transcription_input='')
 
 @action(reads=[], writes=["chat_history"])
 def exit_chat(state: State) -> Tuple[dict, State]:
     title("exit_chat")
-    factory.tts_provider.speak(f"Ich beende das Programm, {random_bye()}")
+    factory.human_speech_agent.say_bye("Ich beende das Programm")
     return {"chat_history": []}, state.update(chat_history=[])
 
-@action(reads=["chat_history"], writes=["response", "chat_history"])
-def ai_response(state: State) -> Tuple[dict, State]:
+@streaming_action(reads=["chat_history"], writes=["response", "sentences" , "chat_history"])
+async def ai_response(state: State, stop_signal: threading.Event) -> AsyncGenerator[Tuple[dict, Optional[State]], None]:
     # give the history including the last user input to the LLM to get its response
     response_stream = factory.llm_provider.chat_stream(state["chat_history"])
-    response = ''
     print("KI: ", end='', flush=True)
     # consume the stream and collect response while printing to console
-    buffer = ""
     response = ""
-    sentences_all = []
-    for chunk in response_stream:
+    sentences_list = []
+    buffer = ''
+    async for chunk in response_stream:
         response += chunk
-        buffer += chunk
-        print(chunk, end='', flush=True)
+        # identify sentences on-the-fly out of the stream
+        # process all full sentences (except incomplete)
+        buffer = f"{buffer}{chunk}"
         # Tokenize to sentences
         sentences = sent_tokenize(buffer)
-        # process all full sentences (except incomplete)
+        #print(f"buffer (arr={len(sentences)}): {buffer} ")
         for sentence in sentences[:-1]:
-            factory.tts_provider.speak(sentence)
-            sentences_all.append(sentence)
+            factory.human_speech_agent.say(sentence)
+            sentences_list.append(sentence)
+            yield { "sentences": sentence }, None
         # store last (maybe incomplete) sentence in the buffer
         buffer = sentences[-1]
-    if len(buffer) > 2:
-        # add last fragment of response
-        factory.tts_provider.speak(buffer)
-        sentences_all.append(buffer)
-    # add response to the history to show to the use
-    chat_item = {"content": response, "role": "assistant"}
+        print(chunk, end='', flush=True)
+        # No state update on intermediate results
+        yield { "response": chunk }, None
+    # send the last sentence now
+    if len(buffer) > 0:
+        sentences_list.append(buffer)
+        factory.human_speech_agent.say(buffer)
+        yield { "sentences": buffer }, None
+    # Update state after stream is finished
     print()
-    title(f"ai_response finished, wait for speaking is done")
-    # Stop if we do not speak for a second
-    counter_not_speaking=0
-    while True:
-        if not factory.tts_provider.still_speaking:
-            counter_not_speaking+=1
-        if counter_not_speaking > 15:
-            break
-        time.sleep(0.1)
-    title(f"ai_repsonse: speaking has finished")
-    #for s in sentences_all:
-    #    print(f"Sentence: {s}")
-    return {"response": response}, state.update(response=response).append(chat_history=chat_item)
+    title(f"ai_response finished: response={response}\nsentence_list={sentences_list}")
+    #factory.human_speech_agent.say(response)
+    yield {"response": response, "sentences": sentences_list}, state.update(response=response).update(sentences=sentences_list).append(chat_history={"content": response, "role": "assistant"})
+
 
 def application():
+    stop_signal = threading.Event()
     return (
         ApplicationBuilder()
         .with_actions(
-            get_user_speak_input=get_user_speak_input,
-            transcribe_voice_recording=transcribe_voice_recording,
+            wait_for_user_speak_input=get_user_speak_input.bind(
+                stop_signal=stop_signal,
+                wait_for_wakeword=True
+            ),
+            get_user_speak_input=get_user_speak_input.bind(
+                stop_signal=stop_signal,
+                wait_for_wakeword=False
+            ),
             we_did_not_understand=we_did_not_understand,
             human_input=human_input,
-            ai_response=ai_response,
-            exit_chat_check=exit_chat_check,
-            exit_chat=exit_chat
+            ai_response=ai_response.bind(stop_signal=stop_signal),
+            choose_mode=choose_mode,
+            exit_chat=exit_chat,
+            entry_point=entry_point
         )
         .with_transitions(
+            # entrypoint action
+            ("entry_point","wait_for_user_speak_input"),
             # get first user input with wakeup word "hey computer" and send to transcription
-            ("get_user_speak_input", "transcribe_voice_recording"),
+            ("wait_for_user_speak_input", "choose_mode"),
             # check if we have enough chars from the transcription, if not go to we_did_not_understand
-            ("transcribe_voice_recording", "we_did_not_understand", expr("prompt_len < 10")),
-            # if we_did_not_understand directly record again and transcribe again
-            ("we_did_not_understand", "transcribe_voice_recording"),
-            # if prompt_len is ok then send to human_input
-            ("transcribe_voice_recording", "exit_chat_check", expr("prompt_len >= 10")),
+            ("choose_mode", "we_did_not_understand", when(mode=Mode.GARBAGE_INPUT)),
+            # give user speech feedback and directly records afterwards
+            ("we_did_not_understand", "wait_for_user_speak_input"),
             # if user wants to end the conversation we do so
-            ("exit_chat_check", "exit_chat", when(exit_chat=True)),
-            # else pass on to use this as human input
-            ("exit_chat_check", "human_input", when(exit_chat=False)),
+            ("choose_mode", "exit_chat", when(mode=Mode.EXIT)),
+            # else pass on to use this as human input prompt
+            ("choose_mode", "human_input", when(mode=Mode.CHAT)),
             # the human input is given to the LLM to get a response
             ("human_input", "ai_response"),
-            # after AI has answered go back to wait for wakeup word to record again
-            ("ai_response", "get_user_speak_input"),
+            #("ai_response", "wait_for_user_speak_input"),
+             # send the AI response split_sentence to split the stream into sentence pieces
+            ("ai_response", "wait_for_user_speak_input"),
         )
         # init the chat history with the system prompt
         .with_state(chat_history=[{"content": factory.llm_provider.system_prompt, "role": "assistant"}], exit_chat=False)
-        .with_entrypoint("get_user_speak_input")
+        .with_entrypoint("entry_point")
         .with_tracker("local", project="servant-llm")
         .build()
     )
 
-if __name__ == "__main__":
-    app = application()
-    #app.visualize(include_conditions=True, output_file_path="graph.png", include_state=True)
-    action_we_ran, result, state = app.run(halt_after=["exit_chat"])
+async def run(app):
+    """Runs the application. Queries the input for prompt"""
+    last_action, stream_result = await app.astream_result(
+        halt_after=["exit_chat"]
+    )
+    print(f"result={stream_result} action={last_action}")
+    async for item in stream_result:
+        print("FINAL: Got "+item["sentences"], end="\n")
+    #result = await result.get()
     title("Application finished")
-    for item in state['chat_history']:
-        print(item['role'] + ':' + item['content'] + '\n')
+
+
+async def main():
+    app = application()
+    try:
+        app.visualize(
+            output_file_path="graph", include_conditions=False, view=False, format="png"
+        )
+    except:
+        print("Graphviz is not installed, skip generating graph image.")
+    await run(app)
+
+if __name__ == "__main__":
+    asyncio.run(main())

@@ -1,12 +1,31 @@
 import os
+import threading
 from abc import ABC, abstractmethod
-from typing import BinaryIO, List
+from typing import BinaryIO, List, Callable, Generator, AsyncGenerator
+
 
 class AudioInterface(ABC):
+
+    """
+    A metaclass that combines ABCMeta and Singleton logic.
+    This metaclass ensures that only one instance of any class using it is created.
+    Only the first constructor call creates an instance, the other get the same reference
+    """
+    _instances = {}
+
+    def __call__(cls, *args, **kwargs):
+        # Check if an instance already exists
+        if cls not in cls._instances:
+            # Call ABCMeta.__call__ to create the instance (this respects ABC constraints)
+            instance = super(AudioInterface, cls).__call__(*args, **kwargs)
+            cls._instances[cls] = instance
+        return cls._instances[cls]
 
     def __init__(self):
         self.frames_per_buffer = 1024
         self.sample_rate = 16000
+        self.input_channels: int = 1
+        self.bytes_per_frame = 2
         # Read environment variables
         self.audio_microphone_device = int(os.getenv('AUDIO_MICROPHONE_DEVICE', '-1'))
         if self.audio_microphone_device < 0:
@@ -14,6 +33,8 @@ class AudioInterface(ABC):
         self.audio_playback_device = int(os.getenv('AUDIO_PLAYBACK_DEVICE', '-1'))
         if self.audio_playback_device < 0:
             self.audio_playback_device = None
+        self.stop_signal_record = threading.Event()
+        self.start_signal_record = threading.Event()
 
     @abstractmethod
     def list_devices(self) -> None:
@@ -35,7 +56,7 @@ class AudioInterface(ABC):
         pass
 
     @abstractmethod
-    def get_record_stream(self):
+    async def get_record_stream(self)  -> AsyncGenerator[bytes, None]:
         """
         Open a recording stream (or equivalent object) for capturing audio from the currently selected microphone device.
 
@@ -45,21 +66,15 @@ class AudioInterface(ABC):
         pass
 
     @abstractmethod
-    def get_audio_buffer(self, frames: List[bytes]) -> BinaryIO:
-        """
-        Convert raw audio frames into an audio buffer (e.g., a WAV file in memory).
+    def stop_recording(self):
+        pass
 
-        :param frames: A list of raw audio data frames.
-        :return: A file-like object (BinaryIO) containing the audio data (e.g. WAV) ready to be read or written.
-        """
+    @abstractmethod
+    def stop_playback(self):
         pass
 
     @abstractmethod
     def play_audio(self, sample_rate, audio_buffer):
-        pass
-
-    @abstractmethod
-    def play_frames(self, sample_rate, audio_buffer):
         pass
 
     def config_str(self):

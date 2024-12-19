@@ -12,3 +12,9 @@ vosk==0.3.45
 soundfile==0.12.1
 openai==1.57.2
 pvporcupine==3.0.3
+websocket==0.2.1
+python-dotenv==1.0.1
+tqdm==4.67.0
+pydub==0.25.1
+websocket_client==1.8.0
+bytewax==0.21.1

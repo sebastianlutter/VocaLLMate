@@ -25,14 +25,12 @@ class LmmOllamaRemote(LmmInterface):
         )['message']['content']
         return content
 
-    def chat_stream(self, full_chat):
-        content = (
-            self.client.chat(
+    async def chat_stream(self, full_chat):
+        content = self.client.chat(
                 model=self.model,
                 stream=True,
                 messages=full_chat,
             )
-        )
         #print("KI: ", end='', flush=True)
         for chunk in content:
             c = chunk['message']['content']

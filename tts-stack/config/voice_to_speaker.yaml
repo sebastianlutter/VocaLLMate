@@ -1,6 +1,7 @@
 ﻿tts-1:
   alloy: # the default voice used mapped to thorsten
-    model: voices/de_DE-thorsten-low.onnx
+#    model: voices/de_DE-thorsten-low.onnx
+    model: voices/de_DE-thorsten_emotional-medium.onnx
     speaker:
   thorsten-low:
     model: voices/de_DE-thorsten-low.onnx
