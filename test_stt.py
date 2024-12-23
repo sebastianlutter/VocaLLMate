@@ -6,6 +6,8 @@ from servant.stt.stt_factory import SttFactory
 
 load_dotenv()
 
+channel=1
+format_bytes=2 #pyaudio.paInt16
 sample_rate=16000
 frames_per_buffer=1024
 

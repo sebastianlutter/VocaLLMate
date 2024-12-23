@@ -63,6 +63,9 @@ class HumanSpeechAgent:
             "Moin moin!", "Hey, alles klar?", "Hallo, schön dich kennenzulernen!",
             "Hallo, wie läuft's?", "Grüß Gott!", "Einen schönen Tag!", "Schön, dass du da bist!"
         ]
+        self.did_not_understand = [
+            "Das war unverständlich, noch mal bitte"
+        ]
         self.explain_sentence = "Sag das wort computer um zu starten."
         self._warmup_cache()
 
@@ -80,27 +83,32 @@ class HumanSpeechAgent:
         hi_phrase = random.choice(self.hi_choices)
         mp3_path = self._get_cache_file_name(hi_phrase)
         sample_rate, audio_buffer = self._load_mp3_to_wav_bytesio(mp3_path)
-        self.tts_provider.set_stop_signal()
-        self.tts_provider.wait_until_done()
-        self.tts_provider.clear_stop_signal()
+        print(f"human_speech_agent.say_hi: {hi_phrase}")
         self.soundcard.play_audio(sample_rate, audio_buffer)
 
     def say_bye(self, message: str = ''):
         bye_phrase = random.choice(self.bye_choices)
         mp3_path = self._get_cache_file_name(bye_phrase)
         sample_rate, audio_buffer = self._load_mp3_to_wav_bytesio(mp3_path)
-        self.tts_provider.set_stop_signal()
-        self.tts_provider.clear_stop_signal()
+        print(f"human_speech_agent.say_bye: {message}{bye_phrase}")
         if message != '':
             self.tts_provider.speak(message)
         self.tts_provider.wait_until_done()
         self.soundcard.play_audio(sample_rate, audio_buffer)
 
+    def say_did_not_understand(self):
+        did_not_understand_phrase = random.choice(self.did_not_understand)
+        mp3_path = self._get_cache_file_name(did_not_understand_phrase)
+        sample_rate, audio_buffer = self._load_mp3_to_wav_bytesio(mp3_path)
+        print(f"human_speech_agent.say_did_not_understand: {did_not_understand_phrase}")
+        self.soundcard.play_audio(sample_rate, audio_buffer)
 
     def say(self, message: str):
+        print(f"human_speech_agent.SAY: {message}")
         self.tts_provider.speak(message)
 
     def skip_all_and_say(self, message: str):
+        print(f"human_speech_agent.Skip all and say: {message}")
         # first skip all speaking tasks
         self.tts_provider.set_stop_signal()
         self.tts_provider.wait_until_done()
@@ -109,56 +117,46 @@ class HumanSpeechAgent:
             self.tts_provider.speak(message)
 
     def block_until_talking_finished(self):
-        return self.tts_provider.wait_until_done()
+        self.tts_provider.wait_until_done()
 
     async def get_human_input(self, ext_stop_signal: threading.Event, wait_for_wakeword: bool = True) -> AsyncGenerator[str, None]:
         if wait_for_wakeword:
+            print("human_speech_agent.get_human_input: Wait for wake word")
             self.voice_activator.listen_for_wake_word()
-
-        def should_continue_ws():
-            external_should_continue = not ext_stop_signal.is_set()
-            b = (not self.stop_signal.is_set()) and external_should_continue
-            if not b:
-                print(f"should_continue_ws={b} | (not stop_signal.is_set()={self.stop_signal.is_set()}) and external_should_continue={external_should_continue}")
-            return b
+        self.say_hi()
 
         def on_close_ws_callback():
-            print("on-close websocket callback:")
+            print("human_speech_agent.get_human_input.on_close_ws_callback: set stop")
             self.stop_signal.set()
+
+        def on_ws_open():
+            print("human_speech_agent.on_ws_open: Should say_hi now ws is opened:")
 
         async for text in self.stt_provider.transcribe_stream(
             audio_stream=self.start_recording(),
             websocket_on_close=on_close_ws_callback,
-            websocket_on_open=self.say_hi
+            websocket_on_open=on_ws_open
         ):
             yield text
-        print("END OF: get_human_input")
+        print("human_speech_agent.get_human_input: finished")
 
     async def start_recording(self) -> AsyncGenerator[bytes, None]:
-        print("Recording...")
+        print("human_speech_agent.start_recording: Recording...")
         silence_counter = 0
         record_start_time = time.time()
 
-        def continue_recording():
-            stop_now_bool = self.stop_signal.is_set()
-            silence_detected = silence_counter > 30
-            silence_lead_time_passed = time.time() - record_start_time < self.silence_lead_time
-            max_time_passed = time.time() - record_start_time > self.max_recording_time
-            b = not ((silence_detected and silence_lead_time_passed) or max_time_passed or stop_now_bool)
-            if not b:
-                print("Stop recording...")
-                print(f"should_continue= not ((silence_detected={silence_detected} and silence_lead_time_passed={silence_lead_time_passed}) or max_time_passed={max_time_passed} or stop_now={stop_now_bool})")
-            return b
-
         async for wav_chunk in self.soundcard.get_record_stream():
+            if self.stop_signal.is_set():
+                print("human_speech_agent.start_recording: Stop signal is set. Abort reading record stream")
+                self.soundcard.stop_recording()
+                break
             yield wav_chunk
-        print("END OF: start_recording")
 
     def _warmup_cache(self):
         # Ensure the tts_cache directory exists
         os.makedirs("tts_cache", exist_ok=True)
         # Pre-render all hi and bye choices to mp3
-        all_choices = self.hi_choices + self.bye_choices + self.init_greetings + [self.explain_sentence]
+        all_choices = self.hi_choices + self.bye_choices + self.init_greetings + [self.explain_sentence] + self.did_not_understand
         for sentence in tqdm(all_choices, desc="Warmup cache with hi and bye phrases"):
             file_name = self._get_cache_file_name(sentence)
             if not os.path.exists(file_name):

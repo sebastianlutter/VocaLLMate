@@ -1,127 +1,330 @@
-import time
-from typing import Generator, Callable, AsyncGenerator
-import queue
-import threading
-import pyaudio
-import wave
 import os
-import io
-import numpy as np
+import time
+import threading
 from io import BytesIO
+import wave
+import pyaudio
+import queue
+import asyncio
+import numpy as np
+from typing import AsyncGenerator
+
 from servant.audio_device.soundcard_interface import AudioInterface
+from scipy.signal import resample
+
 
 class SoundCard(AudioInterface):
-    
     def __init__(self):
         super().__init__()
-        self.sample_format: int = pyaudio.paInt16
+
+        # Use 16-bit PCM for better ALSA compatibility
+        self.sample_format = pyaudio.paInt16
         # Create an interface to PortAudio
         self.audio = pyaudio.PyAudio()
-        # if device number is set to None then automatically choose an index
+
+        # If device number is None, choose "default" device by name
         if self.audio_playback_device is None:
             self.choose_default_playback()
         if self.audio_microphone_device is None:
             self.choose_default_microphone()
+
         # Validate microphone device index
         if not self.is_valid_device_index(self.audio_microphone_device, input_device=True):
             print("Available devices:")
             self.list_devices()
-            raise Exception(f"Error: The microphone device index '{self.audio_microphone_device}' is invalid or not available.")
+            raise Exception(
+                f"Error: The microphone device index '{self.audio_microphone_device}' "
+                "is invalid or not available."
+            )
         # Validate playback device index
         if not self.is_valid_device_index(self.audio_playback_device, input_device=False):
             print("Available devices:")
             self.list_devices()
-            raise Exception(f"Error: The playback device index '{self.audio_playback_device}' is invalid or not available.")
-        # Attempt to read environment variables for microphone and playback devices
+            raise Exception(
+                f"Error: The playback device index '{self.audio_playback_device}' "
+                "is invalid or not available."
+            )
+
         print("Available devices:")
         self.list_devices()
-        print(f"Loading device: microphone={self.audio_microphone_device}, playback={self.audio_playback_device}")
-        # Print chosen devices
+        print(f"Loading device: microphone={self.audio_microphone_device}, "
+              f"playback={self.audio_playback_device}")
         print(f"Chosen Microphone Device Index: {self.audio_microphone_device}")
         print(f"Chosen Playback Device Index: {self.audio_playback_device}")
-        # Setup for queued playback
+
+        # Use the default sample rate from the playback device
+        device_info = self.audio.get_device_info_by_index(self.audio_playback_device)
+        #self.sample_rate = int(device_info["defaultSampleRate"])
+        # frames_per_buffer can be tuned (e.g., 512, 1024, 2048)
+        # Larger buffers are more stable (fewer underruns), but higher latency
+        self.frames_per_buffer = 1024
+        self.bytes_per_frame = 2  # 16-bit => 2 bytes
+
+        # -------------------------------------------------------------
+        #  Queues for playback and recording
+        # -------------------------------------------------------------
+        # Playback queue: items are (sample_rate: int, np.array)
         self.playback_queue = queue.Queue()
-        self.playback_thread = None
-        self.playback_thread_lock = threading.Lock()
-        self.playback_stream = None
-        # stop signals
-        self.stop_signal_record = threading.Event()
+        # For recording data from the callback
+        self.record_queue = queue.Queue()
+        self.recording_active = threading.Event()
+
+        # Stop signals
         self.stop_signal_playback = threading.Event()
+        self.stop_signal_record = threading.Event()
 
-    def list_devices(self):
-        """List all microphone (input) and playback (output) devices in separate well-formed tables."""
-        device_count = self.audio.get_device_count()
-        # Separate devices into microphones and playback devices
-        microphone_devices = []
-        playback_devices = []
-        for i in range(device_count):
-            info = self.audio.get_device_info_by_index(i)
-            if info['maxInputChannels'] > 0:
-                microphone_devices.append((i, info))
-            if info['maxOutputChannels'] > 0:
-                playback_devices.append((i, info))
-        # Define table headers
-        headers = ["Index", "Name", "Input Channels", "Output Channels", "Default Sample Rate"]
-        # Print Microphone Devices
-        print("\nMicrophone (Input) Devices:")
-        print("-" * 85)
-        print(f"| {' | '.join(headers)} |")
-        print("-" * 85)
-        for idx, info in microphone_devices:
-            print(f"| {idx:<5} | {info['name']:<30} | {info['maxInputChannels']:<14} | {info['maxOutputChannels']:<15} | {info['defaultSampleRate']:<19} |")
-        print("-" * 85)
-        # Print Playback Devices
-        print("\nPlayback (Output) Devices:")
-        print("-" * 85)
-        print(f"| {' | '.join(headers)} |")
-        print("-" * 85)
-        for idx, info in playback_devices:
-            print(f"| {idx:<5} | {info['name']:<30} | {info['maxInputChannels']:<14} | {info['maxOutputChannels']:<15} | {info['defaultSampleRate']:<19} |")
-        print("-" * 85)
-        print()  # Extra newline for readability
+        # -------------------------------------------------------------
+        #  Playback callback state
+        # -------------------------------------------------------------
+        self.current_buffer = b""  # the current audio data being played
+        self.current_pos = 0       # how many bytes of current_buffer have been played so far
+        self.leftover_silence_frames = 0  # frames of silence to play after finishing an item
 
+        # -------------------------------------------------------------
+        #  Open the playback stream (callback mode)
+        # -------------------------------------------------------------
+        self.playback_stream = self.audio.open(
+            format=self.sample_format,
+            channels=self.input_channels,
+            rate=self.sample_rate,
+            output=True,
+            output_device_index=self.audio_playback_device,
+            frames_per_buffer=self.frames_per_buffer,
+            stream_callback=self._playback_callback,  # Our callback
+            start=False,  # We'll explicitly start later
+        )
 
-    def is_valid_device_index(self, index, input_device=True):
-        """Check if the given device index is valid and can be used as an input or output device."""
-        if index is None or index < 0 or index >= self.audio.get_device_count():
-            return False
-        info = self.audio.get_device_info_by_index(index)
-        if input_device and info['maxInputChannels'] < 1:
-            return False
-        if not input_device and info['maxOutputChannels'] < 1:
-            return False
-        return True
+        # -------------------------------------------------------------
+        #  Open the recording stream (callback mode)
+        # -------------------------------------------------------------
+        # We assume we want the same format/rate for recording
+        self.record_stream = self.audio.open(
+            format=self.sample_format,
+            channels=self.input_channels,
+            rate=self.sample_rate,
+            input=True,
+            input_device_index=self.audio_microphone_device,
+            frames_per_buffer=self.frames_per_buffer,
+            stream_callback=self._record_callback,  # Our callback
+            start=False,  # We'll explicitly start later
+        )
 
-    async def get_record_stream(self)  -> AsyncGenerator[bytes, None]:
-        """Open a recording stream using the validated microphone device index if available."""
-        if self.audio_microphone_device is None:
-            raise RuntimeError("No valid microphone device configured. Please set a valid device index.")
-        # reset stop signal
-        self.stop_signal_record.clear()
-        stream = self.audio.open(
-                format=self.sample_format,
-                channels=self.input_channels,
-                rate=self.sample_rate,
-                input=True,
-                frames_per_buffer=self.frames_per_buffer,
-                input_device_index=self.audio_microphone_device
-            )
+        # Start the streams
+        self.playback_stream.start_stream()
+        self.record_stream.start_stream()
+
+    ###########################################################################
+    #                           PyAudio Callbacks
+    ###########################################################################
+
+    def _playback_callback(self, in_data, frame_count, time_info, status_flags):
+        """
+        This callback is invoked by PyAudio/PortAudio whenever the output device
+        needs `frame_count` frames of audio. We must provide exactly that many
+        frames worth of bytes (channels * sample_width * frame_count).
+
+          1. If we are in the middle of a buffer, continue reading from it.
+          2. If we finished a buffer and have leftover silence to play (the 1-sec gap),
+             we fill frames with silence until that gap is done.
+          3. If there's no leftover gap, we pop the next item from the playback queue.
+          4. If the queue is empty, fill with silence.
+        """
+        # If stop signal is set, return silence with paComplete or paAbort
+        if self.stop_signal_playback.is_set():
+            return (b"\x00" * (frame_count * self.bytes_per_frame), pyaudio.paComplete)
+        output_bytes_needed = frame_count * self.bytes_per_frame
+        # We'll accumulate data in a local bytearray
+        output_data = bytearray()
+        while len(output_data) < output_bytes_needed:
+            # 1) If we're in leftover silence mode, produce silent frames first
+            if self.leftover_silence_frames > 0:
+                frames_to_write = min(self.leftover_silence_frames,  # how many silent frames remain
+                                      (output_bytes_needed - len(output_data)) // self.bytes_per_frame)
+                silent_chunk = b"\x00" * (frames_to_write * self.bytes_per_frame)
+                output_data.extend(silent_chunk)
+                self.leftover_silence_frames -= frames_to_write
+
+                # If we still need more data after filling some silence, continue
+                if len(output_data) >= output_bytes_needed:
+                    break
+                # Otherwise, leftover_silence_frames = 0 => move on to next item
+            # 2) If we have a current buffer we haven't finished playing
+            if self.current_buffer and self.current_pos < len(self.current_buffer):
+                bytes_left = len(self.current_buffer) - self.current_pos
+                bytes_to_copy = min(bytes_left, output_bytes_needed - len(output_data))
+                output_data.extend(
+                    self.current_buffer[self.current_pos:self.current_pos + bytes_to_copy]
+                )
+                self.current_pos += bytes_to_copy
+
+                if self.current_pos >= len(self.current_buffer):
+                    # We finished this item -> set leftover_silence_frames for 1 second
+                    self.leftover_silence_frames = self.sample_rate  # 1 second of frames
+                    self.current_buffer = b""
+                    self.current_pos = 0
+                # If we still need more data, continue; else break
+                if len(output_data) >= output_bytes_needed:
+                    break
+            else:
+                # 3) Current buffer is empty or fully played; fetch next item from queue
+                if not self.playback_queue.empty():
+                    # Next item: (sample_rate, numpy_array)
+                    sample_rate, audio_array = self.playback_queue.get_nowait()
+                    self.current_buffer = self._prepare_audio_for_playback(
+                        audio_array,
+                        in_sample_rate=sample_rate,
+                        out_sample_rate=self.sample_rate
+                    )
+                    self.current_pos = 0
+                    # Continue loop so we copy from the new buffer
+                else:
+                    # 4) Nothing in queue => fill with silence
+                    needed = output_bytes_needed - len(output_data)
+                    output_data.extend(b"\x00" * needed)
+                    break
+        return (bytes(output_data), pyaudio.paContinue)
+
+    def _record_callback(self, in_data, frame_count, time_info, status_flags):
+        """
+        Called whenever there's `frame_count` frames of audio from the microphone.
+        We'll push it into `self.record_queue`. The async generator will eventually
+        retrieve it.
+        """
+        if self.stop_signal_record.is_set():
+            # Indicate we want to end
+            return (None, pyaudio.paComplete)
+        # store in_data in the queue when recording capture is active
+        if self.recording_active:
+            self.record_queue.put(in_data)
+        return (None, pyaudio.paContinue)
+
+    ###########################################################################
+    #                 Recording Methods (Async Generator)
+    ###########################################################################
+
+    async def get_record_stream(self) -> AsyncGenerator[bytes, None]:
+        """
+        Provides an async generator that yields recorded audio data.
+        The data is fed from the `_record_callback` into self.record_queue.
+        """
+        self.stop_signal_record.clear()  # Reset stop signal if it was set
+        self.recording_active.set()
         try:
-            while not self.stop_signal_record.is_set():
-                # Read audio data from the microphone
-                yield stream.read(self.frames_per_buffer, exception_on_overflow=False)
-            print("soundcard_pyaudio.get_record_stream: while loop reading from microphone stopped")
+            while not self.stop_signal_record.is_set() or not self.record_queue.empty():
+                if not self.record_queue.empty():
+                    chunk = self.record_queue.get()
+                    yield chunk
+                else:
+                    await asyncio.sleep(0.01)
         finally:
-            stream.stop_stream()
-            stream.close()
+            # When the caller stops iteration, or stop_signal_record is set
+            print("soundcard_pyaudio.get_record_stream: generator exit.")
+            # Stop capturing when the generator is no longer in use
+            self.recording_active.clear()
+            # Clear the queue
+            while not self.record_queue.empty():
+                self.record_queue.get()
+
+    def stop_recording(self):
+        """
+        Signal the record callback to complete, drain the queue, and stop the stream.
+        """
+        self.stop_signal_record.set()
+        # Wait for the stream to actually finish
+        while not self.record_queue.empty():
+            self.record_queue.get()
+        if self.record_stream.is_active():
+            self.record_stream.stop_stream()
+        self.record_stream.close()
+        print("Recording stopped and stream closed.")
+
+    ###########################################################################
+    #                          Playback Methods
+    ###########################################################################
+
+    def play_audio(self, sample_rate: int, audio_array):
+        """
+        Enqueue the audio array for playback. The callback will handle retrieval.
+        """
+        # Check if array is not already numpy ndarray
+        if not isinstance(audio_array, np.ndarray):
+            if isinstance(audio_array, bytes):
+                audio_array = BytesIO(audio_array)
+            if isinstance(audio_array, BytesIO):
+                # so it is a BytesIO object containing a WAV file. Convert to numpy raw PCM data (without WAV header)
+                # Extract raw PCM data from the WAV buffer
+                audio_array.seek(0)  # Reset the buffer pointer to the beginning
+                with wave.open(audio_array, 'rb') as wav_file:
+                    # Read audio frames and convert them to a NumPy array
+                    audio_frames = wav_file.readframes(wav_file.getnframes())
+                    audio_frames = np.frombuffer(audio_frames, dtype=np.float32)
+                    # Ensure the audio is in the correct range for int16 playback
+                    # Scale float data (-1.0 to 1.0) to int16 range
+                    audio_array = (audio_frames * 32767).clip(-32768, 32767).astype(np.int16)
+                    #audio_array = np.array(new_audio_array)
+            else:
+                raise Exception(f"Cannot deal with objects of type {type(audio_array)}")
+        # Ensure the audio is in the correct range for int16 playback
+        if np.issubdtype(audio_array.dtype, np.floating):
+            # Scale float data (-1.0 to 1.0) to int16 range
+            audio_array = (audio_array * 32767).clip(-32768, 32767).astype(np.int16)
+        print(f"soundcard_pyaudio.play_audio: Adding to queue: {len(audio_array)} bytes")
+        # If we previously set stop_signal_playback, clear it:
+        if self.stop_signal_playback.is_set():
+            print("soundcard_pyaudio.play_audio:Unblock playback with play_audio function")
+            self.stop_signal_playback.clear()
+        self.playback_queue.put((sample_rate, audio_array))
+
+    def stop_playback(self):
+        """
+        Signal the playback callback to stop immediately, clear the queue, and close the stream.
+        """
+        self.stop_signal_playback.set()
+        # Clear the queue
+        while not self.playback_queue.empty():
+            self.playback_queue.get()
+        #if self.playback_stream.is_active():
+        #    self.playback_stream.stop_stream()
+        #self.playback_stream.close()
+        print("Playback stopped and stream closed.")
+
+    ###########################################################################
+    #          Audio Format Conversion / Utilities for Playback
+    ###########################################################################
+
+    def _prepare_audio_for_playback(
+        self,
+        audio_array: np.ndarray,
+        in_sample_rate: int,
+        out_sample_rate: int
+    ) -> bytes:
+        """
+        Convert a NumPy array of audio samples to match the playback stream:
+          - Resample from in_sample_rate to out_sample_rate if needed
+          - Convert to 16-bit integer if needed
+          - Return raw bytes
+        """
+        if in_sample_rate != out_sample_rate:
+            # Use scipy.signal.resample for a naive approach
+            new_length = int(len(audio_array) * (out_sample_rate / in_sample_rate))
+            audio_array = resample(audio_array, new_length)
+        # Ensure int16 for paInt16
+        if audio_array.dtype != np.int16:
+            # convert the audio data
+            audio_array = audio_array.astype(np.int16)
+
+        return audio_array.tobytes()
+
+    ###########################################################################
+    #                      Device Selection and Validation
+    ###########################################################################
 
     def choose_default_microphone(self):
         """Automatically chooses an input device whose name contains 'default'."""
         device_count = self.audio.get_device_count()
         for i in range(device_count):
             info = self.audio.get_device_info_by_index(i)
-            name = info['name'].lower()
-            if "default" == name and info['maxInputChannels'] > 0:
+            if "default" == info["name"].lower() and info["maxInputChannels"] > 0:
                 self.audio_microphone_device = i
                 print(f"Chosen default input device: {self.audio_microphone_device} ({info['name']})")
                 return
@@ -132,91 +335,67 @@ class SoundCard(AudioInterface):
         device_count = self.audio.get_device_count()
         for i in range(device_count):
             info = self.audio.get_device_info_by_index(i)
-            name = info['name'].lower()
-            if "default" == name and info['maxOutputChannels'] > 0:
+            if "default" == info["name"].lower() and info["maxOutputChannels"] > 0:
                 self.audio_playback_device = i
                 print(f"Chosen default output device: {self.audio_playback_device} ({info['name']})")
                 return
         raise Exception("No suitable default playback device found.")
 
-    def _playback_worker(self):
-        """
-        This worker runs in a separate thread, pulling items from the queue and playing them.
-        It opens the playback stream when it encounters the first audio item and closes it after
-        the queue is empty and stop_signal is set or no more items remain.
-        """
-        try:
-            stream = None
-            while not self.stop_signal_playback.is_set():
-                try:
-                    # Wait for item with a timeout, so we can check stop_signal periodically
-                    item = self.playback_queue.get(timeout=0.01)
-                except queue.Empty:
-                    # No items currently, check if we should stop
-                    # Write a small silence buffer if the stream is open
-                    if stream is not None and not stream.is_stopped():
-                        silence = (np.zeros(22500, dtype=np.int32)).tobytes()
-                        stream.write(silence)
-                    continue
-                if item is None:  # A sentinel to stop
-                    break
-                sample_rate, audio_array = item
-                if stream is None:
-                    stream = self.audio.open(
-                        format=pyaudio.paFloat32,
-                        channels=1,
-                        rate=sample_rate,
-                        output=True,
-                        output_device_index=self.audio_playback_device
-                    )
-                    stream.start_stream()
-                # Ensure correct dtype
-                if audio_array.dtype != np.float32:
-                    audio_array = audio_array.astype(np.float32)
-                audio_data = audio_array.tobytes()
-                # Write data to stream
-                stream.write(audio_data)
-                self.playback_queue.task_done()
-        finally:
-            if stream is not None:
-                stream.stop_stream()
-                stream.close()
+    def list_devices(self):
+        """List input/output devices in separate well-formed tables."""
+        device_count = self.audio.get_device_count()
+        microphone_devices = []
+        playback_devices = []
+        for i in range(device_count):
+            info = self.audio.get_device_info_by_index(i)
+            if info["maxInputChannels"] > 0:
+                microphone_devices.append((i, info))
+            if info["maxOutputChannels"] > 0:
+                playback_devices.append((i, info))
 
-    def start_playback_thread(self):
-        """Start the worker thread if not already started."""
-        with self.playback_thread_lock:
-            if self.playback_thread is None or not self.playback_thread.is_alive():
-                self.stop_signal_playback.clear()
-                self.playback_thread = threading.Thread(target=self._playback_worker, daemon=True)
-                self.playback_thread.start()
+        headers = ["Index", "Name", "Input Ch", "Output Ch", "Default Rate"]
+        # Print Microphone Devices
+        print("\nMicrophone (Input) Devices:")
+        print("-" * 85)
+        print(f"| {' | '.join(headers)} |")
+        print("-" * 85)
+        for idx, info in microphone_devices:
+            print(
+                f"| {idx:<5} | {info['name']:<30} "
+                f"| {info['maxInputChannels']:<8} "
+                f"| {info['maxOutputChannels']:<8} "
+                f"| {info['defaultSampleRate']:<13} |"
+            )
+        print("-" * 85)
 
-    def play_audio(self, sample_rate: int, audio_array: np.ndarray):
-        """
-        Enqueue the audio array at the given sample_rate for playback.
-        The actual playback happens in a separate worker thread.
-        """
-        self.start_playback_thread()
-        self.playback_queue.put((sample_rate, audio_array))
+        # Print Playback Devices
+        print("\nPlayback (Output) Devices:")
+        print("-" * 85)
+        print(f"| {' | '.join(headers)} |")
+        print("-" * 85)
+        for idx, info in playback_devices:
+            print(
+                f"| {idx:<5} | {info['name']:<30} "
+                f"| {info['maxInputChannels']:<8} "
+                f"| {info['maxOutputChannels']:<8} "
+                f"| {info['defaultSampleRate']:<13} |"
+            )
+        print("-" * 85)
+        print()
 
-    def stop_playback(self):
-        """
-        Immediately stop playback, empty the queue, stop the worker thread, and set
-        everything in a safe state.
-        """
-        self.stop_signal_playback.set()
-        # Clear the queue
+    def is_valid_device_index(self, index, input_device=True):
+        """Check if the given device index is valid and can be used as an input or output device."""
+        if index is None or index < 0 or index >= self.audio.get_device_count():
+            return False
+        info = self.audio.get_device_info_by_index(index)
+        if input_device and info["maxInputChannels"] < 1:
+            return False
+        if not input_device and info["maxOutputChannels"] < 1:
+            return False
+        return True
+
+    def wait_until_playback_finished(self):
+        # Wait until playback finishes
         while not self.playback_queue.empty():
-            try:
-                self.playback_queue.get_nowait()
-                self.playback_queue.task_done()
-            except queue.Empty:
-                break
-        # Push a sentinel to ensure the thread stops
-        self.playback_queue.put(None)
-        if self.playback_thread is not None:
-            self.playback_thread.join()
-            self.playback_thread = None
-
-    def stop_recording(self):
-        self.stop_signal_record.set()
-
+            time.sleep(0.5)
+        time.sleep(1.5)

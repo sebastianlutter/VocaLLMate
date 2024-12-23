@@ -1,6 +1,7 @@
 import os
 import threading
 from abc import ABC, abstractmethod
+import numpy as np
 from typing import BinaryIO, List, Callable, Generator, AsyncGenerator
 
 
@@ -77,5 +78,48 @@ class AudioInterface(ABC):
     def play_audio(self, sample_rate, audio_buffer):
         pass
 
+    @abstractmethod
+    def wait_until_playback_finished(self):
+        pass
+
     def config_str(self):
         return f'Soundcard device: microphone={self.audio_microphone_device}, playback: {self.audio_playback_device}'
+
+
+    def inspect_ndarray(self, array: np.ndarray, name: str = "Array"):
+        """
+        Inspect and print useful information about a given ndarray.
+
+        Args:
+            array (np.ndarray): The ndarray to inspect.
+            name (str): An optional name for the array (useful for labeling in print statements).
+        """
+        try:
+            print(f"--- {name} Information ---")
+            print(f"Shape: {array.shape}")
+            print(f"Data Type: {array.dtype}")
+            print(f"Min Value: {np.min(array)}")
+            print(f"Max Value: {np.max(array)}")
+            # For floating-point arrays, check if values are in the expected range
+            if np.issubdtype(array.dtype, np.floating):
+                print(f"Mean Value: {np.mean(array)}")
+                print("Expected range for floats:")
+                if np.min(array) >= -1.0 and np.max(array) <= 1.0:
+                    print("Values are in the range -1.0 to 1.0 (normalized float audio).")
+                elif np.min(array) >= 0.0 and np.max(array) <= 1.0:
+                    print("Values are in the range 0.0 to 1.0 (possibly normalized float).")
+                else:
+                    print("Values are outside common float ranges (requires inspection).")
+            # For integer arrays, show the range of the integer type
+            elif np.issubdtype(array.dtype, np.integer):
+                dtype_info = np.iinfo(array.dtype)
+                print(f"Integer Range: {dtype_info.min} to {dtype_info.max}")
+                if np.min(array) >= 0 and np.max(array) <= 255:
+                    print("Values are in the range 0 to 255 (8-bit unsigned integer audio).")
+                elif np.min(array) >= dtype_info.min and np.max(array) <= dtype_info.max:
+                    print("Values fit within the expected range for the integer type.")
+                else:
+                    print("Values are outside the expected range for this integer type.")
+            print("--- End of Inspection ---\n")
+        except Exception as e:
+            print(f"Error while inspecting {name}: {e}")

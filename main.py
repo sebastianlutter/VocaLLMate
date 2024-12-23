@@ -88,7 +88,7 @@ async def human_input(state: State) -> Tuple[dict, State]:
 @action(reads=["transcription_input"], writes=["transcription_input"])
 def we_did_not_understand(state: State) -> Tuple[dict, State]:
     title("We did not understand")
-    factory.tts_provider.speak("Das war unverständlich, noch mal bitte")
+    factory.human_speech_agent.say_did_not_understand()
     return {"transcription_input": ''}, state.update(transcription_input='')
 
 @action(reads=[], writes=["chat_history"])
@@ -196,6 +196,7 @@ async def run(app):
 async def main():
     app = application()
     try:
+        print("Store graph.png of actual flow.")
         app.visualize(
             output_file_path="graph", include_conditions=False, view=False, format="png"
         )
