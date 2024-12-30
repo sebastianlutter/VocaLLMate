@@ -8,6 +8,7 @@ import logging
 from pydub import AudioSegment
 from typing import AsyncGenerator, Tuple
 from servant.audio_device.soundcard_factory import SoundcardFactory
+from servant.interrupt_speech_thread import InterruptSpeechThread
 from servant.stt.stt_factory import SttFactory
 from servant.tts.tts_factory import TtsFactory
 from servant.voice_activated_recording.va_factory import VoiceActivatedRecordingFactory
@@ -39,7 +40,7 @@ class HumanSpeechAgent:
         if getattr(self, "_initialized", False):
             return
         self._initialized = True
-
+        self.interrupt_speech_thread = None
         self.soundcard = SoundcardFactory()
         self.voice_activator = VoiceActivatedRecordingFactory()
         self.tts_provider = TtsFactory()
@@ -141,7 +142,7 @@ class HumanSpeechAgent:
         self.tts_provider.wait_until_done()
 
     async def get_human_input(self, ext_stop_signal: threading.Event, wait_for_wakeword: bool = True) -> AsyncGenerator[str, None]:
-        self.soundcard.wait_until_playback_finished()
+        #self.soundcard.wait_until_playback_finished()
         if wait_for_wakeword:
             await self.voice_activator.listen_for_wake_word()
             self.beep_positive()
@@ -204,3 +205,6 @@ class HumanSpeechAgent:
         # convert to ndarray
         data, sample_rate = sf.read(wav_bytes, dtype='float32')
         return sample_rate, data
+
+    def start_speech_interrupt_thread(self, ext_stop_signal: threading.Event):
+        self.interrupt_speech_thread = InterruptSpeechThread(stop_event=ext_stop_signal, va_provider=self.voice_activator)

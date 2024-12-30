@@ -44,6 +44,7 @@ async def get_user_speak_input(state: State, stop_signal: Event, wait_for_wakewo
     This action blocks until it detects the wakeword from the microphone stream. It then
     passes data as wav byte stream to voice_buffer so it can be streamed to transcription
     """
+    stop_signal.clear()
     full_text = ''
     try:
         factory.tts_provider.wait_until_done()
@@ -104,6 +105,7 @@ def exit_chat(state: State) -> Tuple[dict, State]:
 
 @streaming_action(reads=["chat_history"], writes=["response", "sentences" , "chat_history", "input_loop_counter"])
 async def ai_response(state: State, stop_signal: threading.Event) -> AsyncGenerator[Tuple[dict, Optional[State]], None]:
+    stop_signal.clear()
     factory.human_speech_agent.processing_sound()
     # give the history including the last user input to the LLM to get its response
     response_stream = factory.llm_provider.chat_stream(state["chat_history"])
@@ -113,6 +115,7 @@ async def ai_response(state: State, stop_signal: threading.Event) -> AsyncGenera
     sentences_list = []
     buffer = ''
     first_sentence_ready=False
+    factory.human_speech_agent.start_speech_interrupt_thread(ext_stop_signal=stop_signal)
     async for chunk in response_stream:
         response += chunk
         # identify sentences on-the-fly out of the stream
@@ -129,7 +132,7 @@ async def ai_response(state: State, stop_signal: threading.Event) -> AsyncGenera
         #print(f"buffer (arr={len(sentences)}): {buffer} ")
         for sentence in sentences[:-1]:
             # clean the sentence from markdown and skip if broken
-            sentence =  re.sub(r'[*_#`]+', '', sentence).strip()
+            sentence =  re.sub(r'[*_#`"\']+', '', sentence).strip()
             # process only if it has real chars
             if re.search(r'[A-Za-z0-9äöüÄÖÜß]', sentence) is None:
                 continue
@@ -158,6 +161,7 @@ async def ai_response(state: State, stop_signal: threading.Event) -> AsyncGenera
         print(f" - {s}")
     # wait until TTS and soundcard finished playback
     factory.tts_provider.wait_until_done()
+    factory.tts_provider.soundcard.wait_until_playback_finished()
     yield ({"response": response, "sentences": sentences_list, "input_loop_counter": 0},
            state.update(response=response)
                .update(sentences=sentences_list)
