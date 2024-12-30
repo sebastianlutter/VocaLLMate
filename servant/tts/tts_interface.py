@@ -1,10 +1,9 @@
 import os
 import threading
 import queue
-import time
+import logging
 from abc import ABC, abstractmethod
 from typing import TypeVar, Type
-
 from servant.audio_device.soundcard_factory import SoundcardFactory
 
 T = TypeVar('T', bound='TextToSpeechInterface')
@@ -17,6 +16,7 @@ class TextToSpeechInterface(ABC):
         # Protect against multiple initializations if someone tries to create another instance
         if getattr(self, "_initialized", False):
             return
+        self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
         self.tts_endpoint = os.getenv('TTS_ENDPOINT', 'http://127.0.0.1:8001/v1')
         self._initialized = True
         self._sentence_queue = queue.Queue()
@@ -78,7 +78,7 @@ class TextToSpeechInterface(ABC):
             # Indicate we are now speaking
             with self._condition:
                 self._speaking = True
-            #print(f"SPEAK SENTENCE: {sentence}. Remaining in queue {self._sentence_queue._qsize()}")
+            logging.debug(f"SPEAK SENTENCE: {sentence}. Remaining in queue {self._sentence_queue._qsize()}")
             self.speak_sentence(sentence)
             # Finished speaking
             with self._condition:
@@ -96,7 +96,7 @@ class TextToSpeechInterface(ABC):
         """
         Public method to enqueue a sentence to be spoken.
         """
-        print(f"SHOULD SAY SOMETHING: {sentence}")
+        logging.debug(f"speak: {sentence}")
         if not self.stop_signal.is_set():
             self._sentence_queue.put(sentence)
             # Notify condition in case someone is waiting and we want them aware queue changed
@@ -116,6 +116,7 @@ class TextToSpeechInterface(ABC):
         """
         Clears the stop signal and restarts the background thread.
         """
+        self.soundcard.stop_signal_playback.clear()
         if self.stop_signal.is_set():
             self.stop_signal.clear()
             self._thread = threading.Thread(target=self._run, daemon=True)

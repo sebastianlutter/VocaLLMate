@@ -1,5 +1,5 @@
 import openai
-from servant.audio_device.soundcard_factory import SoundcardFactory
+import logging
 from servant.tts.tts_interface import TextToSpeechInterface
 from io import BytesIO
 import soundfile as sf
@@ -11,6 +11,7 @@ class TextToSpeechOpenedaiSpeech(TextToSpeechInterface):
     """
     def __init__(self):
         super().__init__()
+        self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
         self.client = openai.OpenAI(
             # Set environment variables for API configuration
             api_key="sk-111111111",

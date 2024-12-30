@@ -1,9 +1,7 @@
-import os
+import logging
 import asyncio
 import webrtcvad
-
 from servant.voice_activated_recording.va_interface import VoiceActivationInterface
-from servant.audio_device.soundcard_factory import SoundcardFactory
 from servant.stt.stt_whisper_remote import SpeechToTextWhisperRemote
 
 
@@ -20,6 +18,7 @@ class SttProviderWakeWord(VoiceActivationInterface):
 
     def __init__(self):
         super().__init__()
+        self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
         # Remote whisper-based STT object
         self.stt = SpeechToTextWhisperRemote()
 
@@ -38,26 +37,26 @@ class SttProviderWakeWord(VoiceActivationInterface):
           - Then run the remote Whisper streaming to see if the wakeword is spoken.
           - If the STT ends without detecting the wakeword, go back to VAD listening.
         """
-        print(f"Listening for wake word: {self.wakeword}")
+        self.logger.info(f"va_stt_provider: Listening for wake word: {self.wakeword}")
 
         while True:
             # 1) Wait until there's any speech (via VAD)
-            print("WhisperRemoteWakeWord.listen_for_wake_word: waiting for speech via VAD...")
+            self.logger.debug("waiting for speech via VAD...")
             speech_detected = await self._wait_for_speech()
             if not speech_detected:
                 # If _wait_for_speech somehow returned False, just continue
                 continue
 
-            print("Speech detected, starting remote transcription...")
+            self.logger.debug("Speech detected, starting remote transcription...")
 
             # 2) Now open a fresh record stream for STT
             audio_stream = self.soundcard.get_record_stream()
 
             def on_ws_open():
-                print("WhisperRemoteWakeWord.listen_for_wake_word: WebSocket opened.")
+                self.logger.debug("WebSocket opened.")
 
             def on_ws_close():
-                print("WhisperRemoteWakeWord.listen_for_wake_word: WebSocket closed.")
+                self.logger.debug("WebSocket closed.")
 
             try:
                 # 3) Stream to Whisper and look for the wake word
@@ -68,17 +67,17 @@ class SttProviderWakeWord(VoiceActivationInterface):
                 ):
                     # Check if partial transcript includes wakeword
                     if self.wakeword.lower() in partial_text.lower():
-                        print(f"Wake word '{self.wakeword}' detected!")
+                        self.logger.info(f"Wake word '{self.wakeword}' detected!")
                         return
 
                 # If the transcription generator ended without detecting wakeword
-                print("Remote STT ended. Going back to VAD listening...")
+                self.logger.debug("Remote STT ended. Going back to VAD listening...")
 
             except asyncio.CancelledError:
-                print("WhisperRemoteWakeWord.listen_for_wake_word: Cancelled.")
+                self.logger.error("Cancelled.")
                 return
             except Exception as e:
-                print(f"WhisperRemoteWakeWord.listen_for_wake_word: error in STT: {e}")
+                self.logger.error(f"error in STT: {e}")
                 # Return to VAD loop
                 await asyncio.sleep(1.0)
 
@@ -95,7 +94,7 @@ class SttProviderWakeWord(VoiceActivationInterface):
                 if self._chunk_has_speech(chunk):
                     return True
         except Exception as e:
-            print(f"_wait_for_speech: Audio stream ended or error: {e}")
+            self.logger.error(f"_wait_for_speech: Audio stream ended or error: {e}")
         return False
 
     def _chunk_has_speech(self, chunk: bytes) -> bool:

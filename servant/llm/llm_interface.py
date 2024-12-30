@@ -1,4 +1,5 @@
 import os
+import datetime
 from fuzzywuzzy import process
 from abc import ABC, abstractmethod
 
@@ -8,7 +9,13 @@ class LmmInterface(ABC):
         self.llm_endpoint=os.getenv('LLM_ENDPOINT', 'http://127.0.0.1:11434')
         self.llm_provider_model=os.getenv('LLM_PROVIDER_MODEL', 'llama3.2:3b')
         self.system_prompt=os.getenv('SYSTEM_PROMPT', 'Beantworte die Fragen als freundlicher und zuvorkommender Helfer. Antworte maximal mit 1 bis 3 kurzen Sätzen und stelle Gegenfragen wenn der Sachverhalt unklar ist.')
+        # add the current day, date and time to the prompt
+        now = datetime.datetime.now(datetime.timezone.utc)
+        # Print in the desired format, e.g., "Es ist Montag, der 30.12.2024 um 13:48 UTC"
+        day_date_time=f"Es ist {now.strftime('%A')}, der {now.strftime('%d.%m.%Y')} um {now.strftime('%H:%M')} UTC. "
+        self.system_prompt=f"{day_date_time}{self.system_prompt}"
 
+        self.system_prompt=f"{self.system_prompt}"
     @abstractmethod
     def chat(self, text: str, stream: bool = False):
         pass

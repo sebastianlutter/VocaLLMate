@@ -1,5 +1,6 @@
 import sys
 import os
+import logging
 import pvporcupine
 import numpy as np
 from servant.voice_activated_recording.va_interface import VoiceActivationInterface
@@ -7,11 +8,12 @@ from servant.voice_activated_recording.va_interface import VoiceActivationInterf
 class PorcupineWakeWord(VoiceActivationInterface):
     def __init__(self):
         super().__init__()
+        self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
         self.model_path = f'./{self.wakeword}_de_linux_v3_0_0.ppn'
 
         if not os.path.isfile(self.model_path):
-            print(f"Picovoice model file is missing. Cannot find {self.model_path} for given wakeword {self.wakeword}")
-            print("Please make an account and download one: https://picovoice.ai/")
+            self.logger.error(f"Picovoice model file is missing. Cannot find {self.model_path} for given wakeword {self.wakeword}")
+            self.logger.error("Please make an account and download one: https://picovoice.ai/")
             sys.exit(0)
 
         self.porcupine = pvporcupine.create(
@@ -23,7 +25,7 @@ class PorcupineWakeWord(VoiceActivationInterface):
 
     async def listen_for_wake_word(self):
         try:
-            print(f"Listening for wake word: {self.wakeword}")
+            self.logger.info(f"Listening for wake word: {self.wakeword}")
             buffer = []
             async for chunk in self.soundcard.get_record_stream():
                 # Convert raw PCM data to the format expected by Porcupine
@@ -35,9 +37,7 @@ class PorcupineWakeWord(VoiceActivationInterface):
                     buffer = buffer[self.porcupine.frame_length:]  # Remove processed samples
                     result = self.porcupine.process(frame)
                     if result >= 0:
-                        print(f"Wake word '{self.wakeword}' detected!")
+                        self.logger.info(f"Wake word '{self.wakeword}' detected!")
                         return
         finally:
             pass
-
-

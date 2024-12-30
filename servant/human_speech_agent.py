@@ -4,14 +4,22 @@ import time
 import os
 import io
 import hashlib
-from typing import Callable, Generator, AsyncGenerator, Tuple
+import logging
+from pydub import AudioSegment
+from typing import AsyncGenerator, Tuple
 from servant.audio_device.soundcard_factory import SoundcardFactory
 from servant.stt.stt_factory import SttFactory
 from servant.tts.tts_factory import TtsFactory
 from servant.voice_activated_recording.va_factory import VoiceActivatedRecordingFactory
 from tqdm import tqdm
-from pydub import AudioSegment
 import soundfile as sf
+
+format_string = (
+    "%(asctime)s - [Logger: %(name)s] - %(levelname)s - %(filename)s:%(lineno)d in %(funcName)s() - %(message)s"
+)
+logging.basicConfig(format=format_string, level=logging.INFO)
+logging.getLogger('httpx').setLevel(logging.ERROR)
+logging.getLogger('websocket').setLevel(logging.ERROR)
 
 class HumanSpeechAgent:
     _instance = None
@@ -26,6 +34,7 @@ class HumanSpeechAgent:
         return cls._instance
 
     def __init__(self):
+        self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
         # Ensure __init__ only runs once per singleton instance
         if getattr(self, "_initialized", False):
             return
@@ -52,21 +61,24 @@ class HumanSpeechAgent:
             "Viel Erfolg noch!", "Danke und tschüss!", "Alles Gute!", "Bis zum nächsten Treffen!",
             "Leb wohl!"
         ]
+        init_greetings_identity = "Ich freue mich dein Assistent zu sein! "
         self.init_greetings = [
-            "Hallo!", "Hi!", "Hey!", "Guten Tag!", "Guten Morgen!",
-            "Guten Abend!", "Grüß dich!", "Servus!", "Hallöchen!",
-            "Hi, wie geht's?", "Schön dich zu sehen!", "Hallo und willkommen!",
+            "Guten Tag!", "Hi, wie geht's?", "Schön dich zu sehen!", "Hallo und willkommen!",
             "Freut mich, dich zu treffen!", "Hallo zusammen!", "Hallo, mein Freund!",
             "Guten Tag, wie kann ich helfen?", "Willkommen!", "Hallo an alle!",
-            "Hallihallo!", "Herzlich willkommen!", "Hallo, schön dich hier zu haben!",
-            "Moin moin!", "Hey, alles klar?", "Hallo, schön dich kennenzulernen!",
-            "Hallo, wie läuft's?", "Grüß Gott!", "Einen schönen Tag!", "Schön, dass du da bist!"
+            "Herzlich willkommen!", "Hallo, schön dich hier zu haben!", "Hey, alles klar?",
+            "Hallo, schön dich kennenzulernen!", "Hallo, wie läuft's?", "Einen schönen Tag!", "Schön, dass du da bist!"
         ]
+        self.init_greetings = list(map(lambda g: g + init_greetings_identity, self.init_greetings))
         self.did_not_understand = [
             "Das war unverständlich, noch mal bitte"
         ]
         self.explain_sentence = "Sag das wort computer um zu starten."
         self._warmup_cache()
+
+    def engage_input_beep(self):
+        sample_rate, audio_buffer = self._load_mp3_to_wav_bytesio("sounds/deskviewerbeep.mp3")
+        self.soundcard.play_audio(sample_rate, audio_buffer)
 
     def beep_positive(self):
         sample_rate, audio_buffer = self._load_mp3_to_wav_bytesio("sounds/computerbeep_26.mp3")
@@ -85,23 +97,21 @@ class HumanSpeechAgent:
         mp3_path = self._get_cache_file_name(hi_phrase)
         sample_rate, audio_buffer = self._load_mp3_to_wav_bytesio(mp3_path)
         self.soundcard.play_audio(sample_rate, audio_buffer)
-        while True:
-            if self.soundcard.playback_queue.all_tasks_done:
-                break
-            time.sleep(0.5)
+        self.tts_provider.speak(f"Ich höre auf den Namen {self.voice_activator.wakeword}")
+        self.soundcard.wait_until_playback_finished()
 
     def say_hi(self):
         hi_phrase = random.choice(self.hi_choices)
         mp3_path = self._get_cache_file_name(hi_phrase)
         sample_rate, audio_buffer = self._load_mp3_to_wav_bytesio(mp3_path)
-        print(f"human_speech_agent.say_hi: {hi_phrase}")
+        self.logger.info(f"say_hi: {hi_phrase}")
         self.soundcard.play_audio(sample_rate, audio_buffer)
 
     def say_bye(self, message: str = ''):
         bye_phrase = random.choice(self.bye_choices)
         mp3_path = self._get_cache_file_name(bye_phrase)
         sample_rate, audio_buffer = self._load_mp3_to_wav_bytesio(mp3_path)
-        print(f"human_speech_agent.say_bye: {message}{bye_phrase}")
+        self.logger.info(f"say_bye: {message}{bye_phrase}")
         if message != '':
             self.tts_provider.speak(message)
         self.tts_provider.wait_until_done()
@@ -111,37 +121,38 @@ class HumanSpeechAgent:
         did_not_understand_phrase = random.choice(self.did_not_understand)
         mp3_path = self._get_cache_file_name(did_not_understand_phrase)
         sample_rate, audio_buffer = self._load_mp3_to_wav_bytesio(mp3_path)
-        print(f"human_speech_agent.say_did_not_understand: {did_not_understand_phrase}")
+        self.logger.info(f"say_did_not_understand: {did_not_understand_phrase}")
         self.soundcard.play_audio(sample_rate, audio_buffer)
 
     def say(self, message: str):
-        print(f"human_speech_agent.SAY: {message}")
+        self.logger.info(f"SAY: {message}")
         self.tts_provider.speak(message)
 
     def skip_all_and_say(self, message: str):
-        print(f"human_speech_agent.Skip all and say: {message}")
+        self.logger.info(f"Skip all and say: {message}")
         # first skip all speaking tasks
         self.tts_provider.set_stop_signal()
         self.tts_provider.wait_until_done()
+        time.sleep(0.2)
         self.tts_provider.clear_stop_signal()
-        if not message == '':
-            self.tts_provider.speak(message)
+        self.tts_provider.speak(message)
 
     def block_until_talking_finished(self):
         self.tts_provider.wait_until_done()
 
     async def get_human_input(self, ext_stop_signal: threading.Event, wait_for_wakeword: bool = True) -> AsyncGenerator[str, None]:
+        self.soundcard.wait_until_playback_finished()
         if wait_for_wakeword:
-            print("human_speech_agent.get_human_input: Wait for wake word")
             await self.voice_activator.listen_for_wake_word()
-        self.beep_positive()
+            self.beep_positive()
 
         def on_close_ws_callback():
-            print("human_speech_agent.get_human_input.on_close_ws_callback: set stop")
-            self.processing_sound()
+            #self.logger.info("get_human_input.on_close_ws_callback: set stop")
+            ext_stop_signal.set()
 
         def on_ws_open():
-            print("human_speech_agent.on_ws_open: Should say_hi now ws is opened:")
+            #self.logger.info("on_ws_open: Should say_hi now ws is opened:")
+            pass
 
         async for text in self.stt_provider.transcribe_stream(
             audio_stream=self.start_recording(),
@@ -149,16 +160,16 @@ class HumanSpeechAgent:
             websocket_on_open=on_ws_open
         ):
             yield text
-        print("human_speech_agent.get_human_input: finished")
+        self.logger.debug("get_human_input: finished")
 
     async def start_recording(self) -> AsyncGenerator[bytes, None]:
-        print("human_speech_agent.start_recording: Recording...")
+        self.logger.info("start_recording: Recording...")
         silence_counter = 0
         record_start_time = time.time()
 
         async for wav_chunk in self.soundcard.get_record_stream():
             if self.stop_signal.is_set():
-                print("human_speech_agent.start_recording: Stop signal is set. Abort reading record stream")
+                self.logger.info("start_recording: Stop signal is set. Abort reading record stream")
                 self.soundcard.stop_recording()
                 break
             yield wav_chunk

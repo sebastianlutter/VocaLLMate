@@ -1,5 +1,5 @@
 import time
-from threading import Thread
+import logging
 import subprocess
 from servant.tts.tts_interface import TextToSpeechInterface
 import pyttsx3
@@ -11,6 +11,7 @@ class TextToSpeechPyTtsx(TextToSpeechInterface):
     """
     def __init__(self, voice_rate=150, voice='German'):
         super().__init__()
+        self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
         self.engine = pyttsx3.init(debug=True, )  # object creation
         self.engine.setProperty('rate', voice_rate)  # setting up new voice rate
         self.engine.setProperty('voice', 'German')
@@ -37,7 +38,7 @@ class TextToSpeechEspeakCli(TextToSpeechInterface):
             '-s', str(self.voice_rate),
             sentence
         ]
-        print(f"Command: {' '.join(cmd)}")
+        logging.debug(f"Command: {' '.join(cmd)}")
         # Use espeak via subprocess to speak the sentence
         # -v <voice> sets the voice; -s <speed> sets the speaking rate
         subprocess.run(cmd, check=True)

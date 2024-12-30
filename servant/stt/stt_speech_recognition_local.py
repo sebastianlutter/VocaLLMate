@@ -3,8 +3,7 @@ import json
 import time
 import vosk
 import asyncio
-import threading
-from queue import Queue
+import logging
 from servant.stt.stt_interface import SpeechToTextInterface
 
 
@@ -19,6 +18,7 @@ class SpeechToTextSpeechRecognitionLocal(SpeechToTextInterface):
 
     def __init__(self):
         super().__init__()
+        self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
         # Prepare your Vosk model. Adjust path or use environment variable VOSK_MODEL_PATH if desired.
         model_path = os.getenv("VOSK_MODEL_PATH", "./model")
         if not os.path.isdir(model_path):
@@ -50,7 +50,7 @@ class SpeechToTextSpeechRecognitionLocal(SpeechToTextInterface):
 
         # We call the "on_open" callback just for consistency with the remote class
         websocket_on_open()
-        print("SpeechToTextSpeechRecognitionLocal.transcribe_stream: Local streaming STT started.")
+        self.logger.debug("Local streaming STT started.")
 
         old_full_text = ""       # Accumulate final recognized text
         old_partial_text = ""    # Track partial text for incremental updates
@@ -99,7 +99,7 @@ class SpeechToTextSpeechRecognitionLocal(SpeechToTextInterface):
 
                 # Check if we've been silent too long
                 if (time.time() - last_speech_time) > self.NO_SPEECH_TIMEOUT:
-                    print("No speech detected for 3 seconds, ending transcription.")
+                    self.logger.debug("No speech detected for 3 seconds, ending transcription.")
                     break
 
             # Once the stream is fully consumed or we've timed out, get leftover final
@@ -110,8 +110,8 @@ class SpeechToTextSpeechRecognitionLocal(SpeechToTextInterface):
                 yield diff
 
         except BaseException as e:
-            print(f"SpeechToTextSpeechRecognitionLocal.transcribe_stream: exception: {type(e)} {e}")
+            self.logger.error(f"exception: {type(e)} {e}")
         finally:
-            print("SpeechToTextSpeechRecognitionLocal.transcribe_stream: closing local STT.")
+            self.logger.debug("closing local STT.")
             # For consistency, call the "websocket_on_close" callback
             websocket_on_close()

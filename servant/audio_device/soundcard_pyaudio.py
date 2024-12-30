@@ -1,14 +1,14 @@
-import os
 import time
 import threading
+import logging
 from io import BytesIO
 import wave
 import pyaudio
 import queue
 import asyncio
+import logging
 import numpy as np
 from typing import AsyncGenerator
-
 from servant.audio_device.soundcard_interface import AudioInterface
 from scipy.signal import resample
 
@@ -16,7 +16,7 @@ from scipy.signal import resample
 class SoundCard(AudioInterface):
     def __init__(self):
         super().__init__()
-
+        self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
         # Use 16-bit PCM for better ALSA compatibility
         self.sample_format = pyaudio.paInt16
         # Create an interface to PortAudio
@@ -47,10 +47,8 @@ class SoundCard(AudioInterface):
 
         print("Available devices:")
         self.list_devices()
-        print(f"Loading device: microphone={self.audio_microphone_device}, "
+        self.logger.info(f"Loading device: microphone={self.audio_microphone_device}, "
               f"playback={self.audio_playback_device}")
-        print(f"Chosen Microphone Device Index: {self.audio_microphone_device}")
-        print(f"Chosen Playback Device Index: {self.audio_playback_device}")
 
         # Use the default sample rate from the playback device
         device_info = self.audio.get_device_info_by_index(self.audio_playback_device)
@@ -131,7 +129,7 @@ class SoundCard(AudioInterface):
         """
         # If stop signal is set, return silence with paComplete or paAbort
         if self.stop_signal_playback.is_set():
-            return (b"\x00" * (frame_count * self.bytes_per_frame), pyaudio.paComplete)
+            return (b"\x00" * (frame_count * self.bytes_per_frame), pyaudio.paContinue)
         output_bytes_needed = frame_count * self.bytes_per_frame
         # We'll accumulate data in a local bytearray
         output_data = bytearray()
@@ -204,11 +202,11 @@ class SoundCard(AudioInterface):
         Provides an async generator that yields recorded audio data.
         The data is fed from the `_record_callback` into self.record_queue.
         """
-        #print(f"soundcard_pyaudio.get_record_stream: Has been called: Soundcard active={self.record_stream.is_active()} stopped={self.record_stream.is_stopped()}")
+        self.logger.debug(f"Has been called: Soundcard active={self.record_stream.is_active()} stopped={self.record_stream.is_stopped()}")
         self.stop_signal_record.clear()  # Reset stop signal if it was set
         self.recording_active.set()
         try:
-            #print(f"soundcard_pyaudio.get_record_stream: Try queue.emtpy={self.record_queue.empty()} rec_active={self.recording_active.is_set()}")
+            self.logger.debug(f"Try queue.emtpy={self.record_queue.empty()} rec_active={self.recording_active.is_set()}")
             while not self.stop_signal_record.is_set():
                 if not self.record_queue.empty():
                     chunk = self.record_queue.get()
@@ -217,7 +215,7 @@ class SoundCard(AudioInterface):
                     await asyncio.sleep(0.01)
         finally:
             # When the caller stops iteration, or stop_signal_record is set
-            #print("soundcard_pyaudio.get_record_stream: generator exit.")
+            self.logger.debug("soundcard_pyaudio.get_record_stream: generator exit.")
             # Stop capturing when the generator is no longer in use
             self.recording_active.clear()
             # Clear the queue
@@ -235,7 +233,7 @@ class SoundCard(AudioInterface):
         #if self.record_stream.is_active():
         #    self.record_stream.stop_stream()
         #self.record_stream.close()
-        print("Recording stopped and stream closed.")
+        self.logger.debug("Recording stopped and stream closed.")
 
     ###########################################################################
     #                          Playback Methods
@@ -267,10 +265,10 @@ class SoundCard(AudioInterface):
         if np.issubdtype(audio_array.dtype, np.floating):
             # Scale float data (-1.0 to 1.0) to int16 range
             audio_array = (audio_array * 32767).clip(-32768, 32767).astype(np.int16)
-        print(f"soundcard_pyaudio.play_audio: Adding to queue: {len(audio_array)} bytes")
+        self.logger.debug(f"soundcard_pyaudio.play_audio: Adding to queue: {len(audio_array)} bytes")
         # If we previously set stop_signal_playback, clear it:
         if self.stop_signal_playback.is_set():
-            print("soundcard_pyaudio.play_audio:Unblock playback with play_audio function")
+            self.logger.debug("soundcard_pyaudio.play_audio:Unblock playback with play_audio function")
             self.stop_signal_playback.clear()
         self.playback_queue.put((sample_rate, audio_array))
 
@@ -285,7 +283,7 @@ class SoundCard(AudioInterface):
         #if self.playback_stream.is_active():
         #    self.playback_stream.stop_stream()
         #self.playback_stream.close()
-        print("Playback stopped and stream closed.")
+        self.logger.debug("Playback stopped and stream closed.")
 
     ###########################################################################
     #          Audio Format Conversion / Utilities for Playback
@@ -325,7 +323,7 @@ class SoundCard(AudioInterface):
             info = self.audio.get_device_info_by_index(i)
             if "default" == info["name"].lower() and info["maxInputChannels"] > 0:
                 self.audio_microphone_device = i
-                print(f"Chosen default input device: {self.audio_microphone_device} ({info['name']})")
+                self.logger.debug(f"Chosen default input device: {self.audio_microphone_device} ({info['name']})")
                 return
         raise Exception("No suitable default microphone device found.")
 
@@ -336,7 +334,7 @@ class SoundCard(AudioInterface):
             info = self.audio.get_device_info_by_index(i)
             if "default" == info["name"].lower() and info["maxOutputChannels"] > 0:
                 self.audio_playback_device = i
-                print(f"Chosen default output device: {self.audio_playback_device} ({info['name']})")
+                self.logger.debug(f"Chosen default output device: {self.audio_playback_device} ({info['name']})")
                 return
         raise Exception("No suitable default playback device found.")
 
@@ -394,7 +392,32 @@ class SoundCard(AudioInterface):
         return True
 
     def wait_until_playback_finished(self):
-        # Wait until playback finishes
-        while not self.playback_queue.empty():
-            time.sleep(0.5)
-        time.sleep(1.5)
+        """
+        Wait until the playback queue is empty, current buffer is consumed,
+        leftover silence is done, AND an additional 1-second window of silence
+        has passed with no new audio queued.
+        """
+        self.logger.debug("waiting for playback is finished")
+        while True:
+            # Step 1: Keep waiting as long as there is something in the queue.
+            while not self.playback_queue.empty():
+                time.sleep(0.1)
+
+            # Step 2: Wait until the current buffer and leftover silence frames are consumed.
+            while self.current_buffer or self.leftover_silence_frames > 0:
+                time.sleep(0.1)
+
+            # Step 3: Once buffer & leftover_silence_frames are done, wait 1 second
+            #         to ensure no new audio has arrived in the queue.
+            silence_start = time.time()
+            while (time.time() - silence_start) < 1.0:
+                # If new data was queued or leftover_silence_frames got replenished,
+                # break and loop again.
+                if not self.playback_queue.empty() or self.current_buffer or self.leftover_silence_frames > 0:
+                    break
+                time.sleep(0.05)
+            else:
+                # We had a full second of silence (i.e., no break above),
+                # so we're truly done.
+                break
+        self.logger.debug("waiting for playback finished is done")
