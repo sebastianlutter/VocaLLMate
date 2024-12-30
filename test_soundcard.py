@@ -20,11 +20,11 @@ print("Show available devices")
 s.list_devices()
 
 start_recording = time.time()
-async def record_something():
+async def record_something(num: str):
     record_start_time = time.time()
     print("Record something the next 3 seconds")
     stream = s.get_record_stream()
-    output_file = "test_soundcard.wav"
+    output_file = f"test_soundcard_{num}.wav"
     # Collect the WAV data from the stream into a BytesIO buffer
     wav_buffer = io.BytesIO()
     with wave.open(wav_buffer, 'wb') as wav_file:
@@ -47,7 +47,13 @@ async def record_something():
     wav_buffer.seek(0)  # Reset the buffer pointer to the beginning
     return wav_buffer
 
-wav_buffer = asyncio.run(record_something())
+count=0
+while True:
+    print(f"Start:")
+    count+=1
+    wav_buffer = asyncio.run(record_something(str(count)))
+    print(f"Recoding done: {len(wav_buffer.getvalue())}")
+    time.sleep(2)
 
 s.play_audio(s.sample_rate, wav_buffer.read())
 print("Wait 5 seconds")

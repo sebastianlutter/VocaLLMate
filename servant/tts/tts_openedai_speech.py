@@ -22,9 +22,9 @@ class TextToSpeechOpenedaiSpeech(TextToSpeechInterface):
         # Generate speech using OpenAI's API
         response = self.client.audio.speech.create(
             model="tts-1",
-            #voice="thorsten-low",
-            #voice="thorsten_emotional",
-            voice="thorsten-medium-emo",
+            voice="thorsten-low",
+            #voice="thorsten-medium",
+            #voice="thorsten-medium-emo",
             response_format="wav",
             speed="1.0",
             input=sentence,
@@ -42,8 +42,8 @@ class TextToSpeechOpenedaiSpeech(TextToSpeechInterface):
         response = self.client.audio.speech.create(
             model="tts-1",
             # voice="thorsten-low",
-            # voice="thorsten_emotional",
-            voice="thorsten-medium-emo",
+            voice="thorsten-medium",
+            #voice="thorsten-medium-emo",
             response_format="mp3",
             speed="1.0",
             input=sentence,

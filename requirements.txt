@@ -16,3 +16,5 @@ python-dotenv==1.0.1
 tqdm==4.67.0
 websocket_client==1.8.0
 scipy==1.14.1
+webrtcvad==2.0.10
+pysilence==0.1.3

@@ -40,10 +40,9 @@ class HumanSpeechAgent:
         self.stop_signal = threading.Event()
         self.hi_choices = [
             'ja, hi', 'schiess los!',
-            'was gibts?', 'hi, was?',
+            'was gibts?', 'hi, was geht?',
             'leg los!', 'was willst du?',
             'sprechen Sie', 'jo bro',
-            "Moin!", "Na?",
         ]
         self.bye_choices = [
             "Auf Wiedersehen!", "Mach’s gut!", "Bis zum nächsten Mal!", "Tschüss!", "Ciao!", "Adieu!",
@@ -68,6 +67,18 @@ class HumanSpeechAgent:
         ]
         self.explain_sentence = "Sag das wort computer um zu starten."
         self._warmup_cache()
+
+    def beep_positive(self):
+        sample_rate, audio_buffer = self._load_mp3_to_wav_bytesio("sounds/computerbeep_26.mp3")
+        self.soundcard.play_audio(sample_rate, audio_buffer)
+
+    def beep_error(self):
+        sample_rate, audio_buffer = self._load_mp3_to_wav_bytesio("sounds/denybeep1.mp3")
+        self.soundcard.play_audio(sample_rate, audio_buffer)
+
+    def processing_sound(self):
+        sample_rate, audio_buffer = self._load_mp3_to_wav_bytesio("sounds/processing.mp3")
+        self.soundcard.play_audio(sample_rate, audio_buffer)
 
     def say_init_greeting(self):
         hi_phrase = random.choice(self.init_greetings)
@@ -122,12 +133,12 @@ class HumanSpeechAgent:
     async def get_human_input(self, ext_stop_signal: threading.Event, wait_for_wakeword: bool = True) -> AsyncGenerator[str, None]:
         if wait_for_wakeword:
             print("human_speech_agent.get_human_input: Wait for wake word")
-            self.voice_activator.listen_for_wake_word()
-        self.say_hi()
+            await self.voice_activator.listen_for_wake_word()
+        self.beep_positive()
 
         def on_close_ws_callback():
             print("human_speech_agent.get_human_input.on_close_ws_callback: set stop")
-            self.stop_signal.set()
+            self.processing_sound()
 
         def on_ws_open():
             print("human_speech_agent.on_ws_open: Should say_hi now ws is opened:")

@@ -88,7 +88,8 @@ async def human_input(state: State) -> Tuple[dict, State]:
 @action(reads=["transcription_input"], writes=["transcription_input"])
 def we_did_not_understand(state: State) -> Tuple[dict, State]:
     title("We did not understand")
-    factory.human_speech_agent.say_did_not_understand()
+    factory.human_speech_agent.beep_error()
+    #factory.human_speech_agent.say_did_not_understand()
     return {"transcription_input": ''}, state.update(transcription_input='')
 
 @action(reads=[], writes=["chat_history"])
@@ -112,7 +113,7 @@ async def ai_response(state: State, stop_signal: threading.Event) -> AsyncGenera
         # process all full sentences (except incomplete)
         buffer = f"{buffer}{chunk}"
         # Tokenize to sentences
-        sentences = sent_tokenize(buffer)
+        sentences = sent_tokenize(text=buffer, language="german")
         #print(f"buffer (arr={len(sentences)}): {buffer} ")
         for sentence in sentences[:-1]:
             factory.human_speech_agent.say(sentence)

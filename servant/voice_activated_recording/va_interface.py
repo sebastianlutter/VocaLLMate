@@ -1,6 +1,8 @@
 import os
 from abc import ABC, abstractmethod
 
+from servant.audio_device.soundcard_factory import SoundcardFactory
+
 
 class VoiceActivationInterface(ABC):
 
@@ -10,10 +12,10 @@ class VoiceActivationInterface(ABC):
         self.wakeword_threshold = int(os.getenv('WAKEWORD_THRESHOLD', '250'))
         # Configurable delay before counting silence
         self.silence_lead_time = 2
-
+        self.soundcard = SoundcardFactory()
 
     @abstractmethod
-    def listen_for_wake_word(self) -> None:
+    async def listen_for_wake_word(self):
         """
         This function should block until the wakeword has been detected
         """

@@ -190,11 +190,8 @@ class SoundCard(AudioInterface):
         We'll push it into `self.record_queue`. The async generator will eventually
         retrieve it.
         """
-        if self.stop_signal_record.is_set():
-            # Indicate we want to end
-            return (None, pyaudio.paComplete)
         # store in_data in the queue when recording capture is active
-        if self.recording_active:
+        if self.recording_active and not self.stop_signal_record.is_set():
             self.record_queue.put(in_data)
         return (None, pyaudio.paContinue)
 
@@ -207,10 +204,12 @@ class SoundCard(AudioInterface):
         Provides an async generator that yields recorded audio data.
         The data is fed from the `_record_callback` into self.record_queue.
         """
+        #print(f"soundcard_pyaudio.get_record_stream: Has been called: Soundcard active={self.record_stream.is_active()} stopped={self.record_stream.is_stopped()}")
         self.stop_signal_record.clear()  # Reset stop signal if it was set
         self.recording_active.set()
         try:
-            while not self.stop_signal_record.is_set() or not self.record_queue.empty():
+            #print(f"soundcard_pyaudio.get_record_stream: Try queue.emtpy={self.record_queue.empty()} rec_active={self.recording_active.is_set()}")
+            while not self.stop_signal_record.is_set():
                 if not self.record_queue.empty():
                     chunk = self.record_queue.get()
                     yield chunk
@@ -218,7 +217,7 @@ class SoundCard(AudioInterface):
                     await asyncio.sleep(0.01)
         finally:
             # When the caller stops iteration, or stop_signal_record is set
-            print("soundcard_pyaudio.get_record_stream: generator exit.")
+            #print("soundcard_pyaudio.get_record_stream: generator exit.")
             # Stop capturing when the generator is no longer in use
             self.recording_active.clear()
             # Clear the queue
@@ -233,9 +232,9 @@ class SoundCard(AudioInterface):
         # Wait for the stream to actually finish
         while not self.record_queue.empty():
             self.record_queue.get()
-        if self.record_stream.is_active():
-            self.record_stream.stop_stream()
-        self.record_stream.close()
+        #if self.record_stream.is_active():
+        #    self.record_stream.stop_stream()
+        #self.record_stream.close()
         print("Recording stopped and stream closed.")
 
     ###########################################################################

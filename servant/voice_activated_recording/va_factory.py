@@ -3,9 +3,9 @@ import os
 def VoiceActivatedRecordingFactory():
     provider_name=os.getenv('WAKEWORD_PROVIDER', 'speech-recognition')
     match provider_name:
-        case 'speech-recognition':
-            from servant.voice_activated_recording.va_speech_recognition import SpeechRecognitionActivated
-            p = SpeechRecognitionActivated()
+        case 'stt-provider-va':
+            from servant.voice_activated_recording.va_stt_provider import SttProviderWakeWord
+            p = SttProviderWakeWord()
         case 'picovoice':
             from servant.voice_activated_recording.va_picovoice import PorcupineWakeWord
             p = PorcupineWakeWord()

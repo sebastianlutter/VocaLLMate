@@ -41,23 +41,27 @@ class SpeechToTextWhisperRemote(SpeechToTextInterface):
         # use the http endpoint for websocket
         self.ws_url = self.stt_endpoint.replace('http://','ws://')
         websocket.enableTrace(False)
+        # if True then the transcription send to the API server is stored as recording_TIMESTAMP.wav
+        self.store_wav = False
+
 
     async def transcribe_stream(self, audio_stream: AsyncGenerator[bytes, None], websocket_on_close: Callable[[], None], websocket_on_open: Callable[[], None]) -> AsyncGenerator[str, None]:
         print("stt_whisper_remote.transcribe_stream: streaming data to whisper server . . .")
         queue = Queue()  # Back channel for transcription results
         # A callback function for receiving messages from the WebSocket
         def on_message(wsc: WebSocket, message: str):
-            print(f"ON MESSAGE: {message}")
+            #print(f"stt_whisper_remote.transcribe_stream.on_message: {message}")
             try:
                 # remove unwanted response, see
                 # https://github.com/openai/whisper/discussions/1536
                 for txt in dataset_bias:
                     if txt in message:
+                        print(f"REMOVE: {txt} from {message}")
                         message = message.replace(txt,'')
                 result = json.loads(message)
                 if 'text' in result and result['text'].strip():
                     print("stt_whisper_remote.transcribe_stream: got: "+ result['text'])
-                    queue.put(result['text'])  # Push the transcription result into the queue
+                    queue.put(result['text'].strip())  # Push the transcription result into the queue
             except json.JSONDecodeError:
                 print(f"stt_whisper_remote.transcribe_stream: got non json: {message}")
                 pass  # Ignore non-JSON messages
@@ -65,29 +69,21 @@ class SpeechToTextWhisperRemote(SpeechToTextInterface):
         thread_stop_event =  threading.Event()
         # Collect the WAV data from the stream into a BytesIO buffer
         def on_open(wsc2: WebSocket):
-            print(f"stt_whisper_remote.transcribe_stream: Successfully connected websocket {self.ws_url}")
+            #print(f"stt_whisper_remote.transcribe_stream: Successfully connected websocket {self.ws_url}")
             # call external callback
             websocket_on_open()
             def send_audio_chunks():
                 try:
                     start_time_sending = time.time()
-                    wav_buffer = io.BytesIO()
                     loop = asyncio.new_event_loop()
                     asyncio.set_event_loop(loop)
                     async def send_chunks():
-                        with wave.open(f=wav_buffer, mode='wb') as wav_file:
-                            wav_file.setnchannels(1)  # Mono audio
-                            wav_file.setsampwidth(2)  # 16-bit depth (2 bytes)
-                            wav_file.setframerate(16000)
-                            wav_file.setcomptype('NONE', 'not compressed')  # PCM format (no compression)
-                            #print(wav_file.getparams())
                             async for wav_chunk in audio_stream:
                                 if thread_stop_event.is_set():  # Check if the stop event is set
-                                    print("stt_whisper_remote.transcribe_stream.on_open.send_audio_chunks.send_chunks: Stop signal received, exiting send_chunks.")
+                                    #print("stt_whisper_remote.transcribe_stream.on_open.send_audio_chunks.send_chunks: Stop signal received, exiting send_chunks.")
                                     loop.stop()
                                     break
-                                wav_file.writeframes(wav_chunk)
-                                # websocket needs raw PCM (pcm_s16le) encoded bytes
+                                # Websocket needs raw PCM (pcm_s16le) encoded bytes.
                                 # Only transcription of a single channel, 16000 sample rate, raw, 16-bit little-endian
                                 # audio is supported.
                                 wsc2.send(wav_chunk, opcode=ABNF.OPCODE_BINARY)
@@ -101,18 +97,10 @@ class SpeechToTextWhisperRemote(SpeechToTextInterface):
                     websocket_on_close()
                     thread_stop_event.set()
                 finally:
-                    print(f"stt_whisper_remote.transcribe_stream.on_open.send_audio_chunks: Sending stuff to websocket for {time.time()-start_time_sending} seconds")
-                    # Save the WAV buffer to a file
-                    outfile = f'recoring_{time.strftime("%y%m%d-%H%M")}.wav'
-                    print(f"stt_whisper_remote.transcribe_stream.on_open.send_audio_chunks: Storing WAV: {outfile}")
-                    with open(outfile, "wb") as f:
-                        f.write(wav_buffer.getvalue())
-                    print("stt_whisper_remote.transcribe_stream.on_open.send_audio_chunks: Cleaning up thread resources.")
+                    print(f"stt_whisper_remote.transcribe_stream.on_open.send_audio_chunks: Sent data to websocket for {time.time()-start_time_sending} seconds. Cleaning up thread and ws resources.")
                     if wsc2:
-                        print("stt_whisper_remote.transcribe_stream.on_open.send_audio_chunks: Close websocket")
                         wsc2.close()  # Close the WebSocket connection
                     if loop:
-                        asyncio.
                         if loop.is_running():
                             loop.stop()
                         if not loop.is_closed():
@@ -125,12 +113,12 @@ class SpeechToTextWhisperRemote(SpeechToTextInterface):
             websocket_on_close()
             thread_stop_event.set()
         def on_close(ws: WebSocket, i1, i2):
-            print(f"stt_whisper_remote.transcribe_stream.on_error: WebSocket closed: {i1}, {i2}")
+            #print(f"stt_whisper_remote.transcribe_stream.on_error: WebSocket closed: {i1}, {i2}")
             queue.put(None)
             websocket_on_close()
             thread_stop_event.set()
         try:
-            print(f"stt_whisper_remote.transcribe_stream: Starting websocket connection to {self.ws_url}")
+            #print(f"stt_whisper_remote.transcribe_stream: Starting websocket connection to {self.ws_url}")
             ws = WebSocketApp(
                 self.ws_url,
                 on_open=on_open,
@@ -138,20 +126,21 @@ class SpeechToTextWhisperRemote(SpeechToTextInterface):
                 on_error=on_error,
                 on_close=on_close
             )
-            # Run the WebSocket in a separate thread to prevent blocking
             ws_thread = threading.Thread(target=ws.run_forever, daemon=True)
             ws_thread.start()
+            # Wait for WebSocket to complete
             # Yield transcription results from the queue
             old_full_text = ''
             while not thread_stop_event.is_set():
                 t = queue.get()
                 if t is None:
                     break
-                #print(f"websocket stream: {t}")
+                # print(f"websocket stream: {t}")
                 t_diff = t[len(old_full_text):]
                 # update the text
                 old_full_text = t
                 yield t_diff
+            ws_thread.join()
             print(f"stt_whisper_remote.transcribe_stream: Transcription queue closed")
         except BaseException as e:
             print(f"stt_whisper_remote.transcribe_stream.BaseException: type={type(e)}, e={e}")

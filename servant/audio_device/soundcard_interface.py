@@ -23,7 +23,7 @@ class AudioInterface(ABC):
         return cls._instances[cls]
 
     def __init__(self):
-        self.frames_per_buffer = 1024
+        self.frames_per_buffer = 512
         self.sample_rate = 16000
         self.input_channels: int = 1
         self.bytes_per_frame = 2
