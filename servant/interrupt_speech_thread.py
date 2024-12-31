@@ -1,8 +1,8 @@
 import threading
-import time
+import asyncio
 import logging
+from typing import Callable
 
-from servant.voice_activated_recording.va_factory import VoiceActivatedRecordingFactory
 from servant.voice_activated_recording.va_interface import VoiceActivationInterface
 
 
@@ -12,7 +12,7 @@ class InterruptSpeechThread:
     controlled via a threading.Event (stop event).
     """
 
-    def __init__(self, stop_event: threading.Event, va_provider: VoiceActivationInterface):
+    def __init__(self, stop_event: threading.Event, va_provider: VoiceActivationInterface, on_stop_callback: Callable[[],None]):
         """
         :param stop_event: A threading.Event that can be used to signal this thread to stop.
         """
@@ -20,6 +20,7 @@ class InterruptSpeechThread:
         self.voice_activation = va_provider
         self._stop_event = stop_event
         self._thread = None
+        self.stop_callback = on_stop_callback
 
     def start(self):
         """
@@ -60,8 +61,9 @@ class InterruptSpeechThread:
         while not self._stop_event.is_set():
             # Perform the thread's tasks here
             self.logger.debug(f"Listen for wakeword {self.voice_activation.wakeword} as speech interrupt word now")
-            self.voice_activation.listen_for_wake_word()
+            asyncio.run(self.voice_activation.listen_for_wake_word())
             self.logger.debug(f"Interrupt speech. Detected wake word \"{self.voice_activation.wakeword}\" as speech interrupt word")
             self._stop_event.set()
+            self.stop_callback()
 
         self.logger.info("Worker thread loop is exiting gracefully.")

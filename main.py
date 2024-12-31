@@ -3,7 +3,7 @@ import asyncio
 import nltk
 import re
 from threading import Event
-
+from servant.llm.llm_prompt_template import Mode
 from burr.examples.streamlit.application import logger
 from nltk.tokenize import sent_tokenize
 from typing import Tuple, Generator, Optional, AsyncGenerator
@@ -12,23 +12,15 @@ from burr.core.action import streaming_action, action
 from servant.servant_factory import ServantFactory
 from dotenv import load_dotenv
 from enum import Enum
+from servant.utils import title
 
 nltk.download('punkt_tab')
 
 load_dotenv()
 
-class Mode(Enum):
-    EXIT=1
-    GARBAGE_INPUT=2
-    CHAT=3
-
 first_run = True
 factory = ServantFactory()
 
-def title(msg):
-    print("###########################################################################################################")
-    print(f"# {msg}")
-    print("###########################################################################################################")
 
 @streaming_action(reads=[], writes=[])
 async def entry_point(state: State) -> AsyncGenerator[Tuple[dict, Optional[State]], None]:
@@ -118,6 +110,10 @@ async def ai_response(state: State, stop_signal: threading.Event) -> AsyncGenera
     factory.human_speech_agent.start_speech_interrupt_thread(ext_stop_signal=stop_signal)
     async for chunk in response_stream:
         response += chunk
+        # stop if the signal from speech interruption thread arrives
+        if stop_signal.is_set():
+            response+=".\nStopped generation because user ordered to do so."
+            break
         # identify sentences on-the-fly out of the stream
         # but first clean the string from newline chars. Add a . to each
         buffer = f"{buffer}{chunk}".replace('\n','. ')

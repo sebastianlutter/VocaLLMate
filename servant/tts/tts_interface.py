@@ -63,7 +63,7 @@ class TextToSpeechInterface(ABC):
         """
         while True:
             if self.stop_signal.is_set():
-                self._clear_queue()
+                self.clear_queue()
                 break
 
             try:
@@ -72,7 +72,7 @@ class TextToSpeechInterface(ABC):
                 continue
 
             if self.stop_signal.is_set():
-                self._clear_queue()
+                self.clear_queue()
                 break
 
             # Indicate we are now speaking
@@ -85,7 +85,7 @@ class TextToSpeechInterface(ABC):
                 self._speaking = False
                 self._condition.notify_all()
 
-    def _clear_queue(self):
+    def clear_queue(self):
         with self._sentence_queue.mutex:
             self._sentence_queue.queue.clear()
         # Notify if we are waiting for done

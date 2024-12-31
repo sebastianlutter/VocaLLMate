@@ -72,9 +72,11 @@ class SttProviderWakeWord(VoiceActivationInterface):
 
                 # If the transcription generator ended without detecting wakeword
                 self.logger.debug("Remote STT ended. Going back to VAD listening...")
-
+            except KeyboardInterrupt as e:
+                self.logger.warning("User aborted in wake word section", exc_info=True)
+                raise e
             except asyncio.CancelledError:
-                self.logger.error("Cancelled.")
+                self.logger.error("Cancelled.", exc_info=True)
                 return
             except Exception as e:
                 self.logger.error(f"error in STT: {e}")

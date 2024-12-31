@@ -6,9 +6,21 @@ from abc import ABC, abstractmethod
 class LmmInterface(ABC):
 
     def __init__(self):
+        self.available_mods=["",""]
+        self.modus_selection_prompt="""
+
+
+Beginne deine Antwort, indem du den gewählten Modus in GROSSBUCHSTABEN nennst (z. B. „CHEF“).
+Gib danach exakt zwei kurze Sätze, abhängig vom gewählten Modus:
+Wählst du CHEF, beschreibe eine schnelle Essensidee.
+Wählst du DOCTOR, gib einen kurzen Gesundheitstipp.
+Wählst du TRAVEL, empfehle ein kurzes Reiseziel.
+Keine weiteren Erklärungen, Haftungsausschlüsse oder zusätzlicher Text über die zwei Sätze hinaus.
+Solltest du dich nicht an diese Vorgaben halten können, antworte mit: INVALID MODE
+"""
         self.llm_endpoint=os.getenv('LLM_ENDPOINT', 'http://127.0.0.1:11434')
         self.llm_provider_model=os.getenv('LLM_PROVIDER_MODEL', 'llama3.2:3b')
-        self.system_prompt=os.getenv('SYSTEM_PROMPT', 'Beantworte die Fragen als freundlicher und zuvorkommender Helfer. Antworte maximal mit 1 bis 3 kurzen Sätzen und stelle Gegenfragen wenn der Sachverhalt unklar ist.')
+        self.system_prompt=os.getenv('SYSTEM_PROMPT', )
         # add the current day, date and time to the prompt
         now = datetime.datetime.now(datetime.timezone.utc)
         # Print in the desired format, e.g., "Es ist Montag, der 30.12.2024 um 13:48 UTC"

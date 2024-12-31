@@ -48,18 +48,18 @@ class HumanSpeechAgent:
         self.max_recording_time = 15
         self.stt_provider = SttFactory()
         self.stop_signal = threading.Event()
+        self.abort_speech_choices = ["Anwort abgebrochen, was soll ich tun?"]
         self.hi_choices = [
             'ja, hi', 'schiess los!',
             'was gibts?', 'hi, was geht?',
             'leg los!', 'was willst du?',
-            'sprechen Sie', 'jo bro',
+            'sprechen Sie', 'jo bro', 'hey ho bro',
+            'was geht so?'
         ]
         self.bye_choices = [
-            "Auf Wiedersehen!", "Mach’s gut!", "Bis zum nächsten Mal!", "Tschüss!", "Ciao!", "Adieu!",
-            "Schönen Tag noch!",
+            "Auf Wiedersehen!", "Mach’s gut!", "Bis zum nächsten Mal!", "Schönen Tag noch!",
             "Bis bald!", "Pass auf dich auf!", "Bleib gesund!", "Man sieht sich!", "Bis später!", "Bis dann!",
-            "Gute Reise!",
-            "Viel Erfolg noch!", "Danke und tschüss!", "Alles Gute!", "Bis zum nächsten Treffen!",
+            "Gute Reise!", "Viel Erfolg noch!", "Danke und tschüss!", "Alles Gute!", "Bis zum nächsten Treffen!",
             "Leb wohl!"
         ]
         init_greetings_identity = "Ich freue mich dein Assistent zu sein! "
@@ -91,6 +91,14 @@ class HumanSpeechAgent:
 
     def processing_sound(self):
         sample_rate, audio_buffer = self._load_mp3_to_wav_bytesio("sounds/processing.mp3")
+        self.soundcard.play_audio(sample_rate, audio_buffer)
+
+    def say_abort_speech(self):
+        self.tts_provider.set_stop_signal()
+        self.tts_provider.soundcard.stop_playback()
+        hi_phrase = random.choice(self.abort_speech_choices)
+        mp3_path = self._get_cache_file_name(hi_phrase)
+        sample_rate, audio_buffer = self._load_mp3_to_wav_bytesio(mp3_path)
         self.soundcard.play_audio(sample_rate, audio_buffer)
 
     def say_init_greeting(self):
@@ -126,7 +134,7 @@ class HumanSpeechAgent:
         self.soundcard.play_audio(sample_rate, audio_buffer)
 
     def say(self, message: str):
-        self.logger.info(f"SAY: {message}")
+        self.logger.debug(f"say: {message}")
         self.tts_provider.speak(message)
 
     def skip_all_and_say(self, message: str):
@@ -179,7 +187,8 @@ class HumanSpeechAgent:
         # Ensure the tts_cache directory exists
         os.makedirs("tts_cache", exist_ok=True)
         # Pre-render all hi and bye choices to mp3
-        all_choices = self.hi_choices + self.bye_choices + self.init_greetings + [self.explain_sentence] + self.did_not_understand
+        all_choices = (self.hi_choices + self.bye_choices + self.init_greetings
+                       + [self.explain_sentence] + self.did_not_understand + self.abort_speech_choices)
         for sentence in tqdm(all_choices, desc="Warmup cache with hi and bye phrases"):
             file_name = self._get_cache_file_name(sentence)
             if not os.path.exists(file_name):
@@ -207,4 +216,12 @@ class HumanSpeechAgent:
         return sample_rate, data
 
     def start_speech_interrupt_thread(self, ext_stop_signal: threading.Event):
-        self.interrupt_speech_thread = InterruptSpeechThread(stop_event=ext_stop_signal, va_provider=self.voice_activator)
+        def stop_speech():
+            # abort any playback and say we stopped
+            self.say_abort_speech()
+
+        self.logger.info("Start speech interrupt thread")
+        self.interrupt_speech_thread = InterruptSpeechThread(stop_event=ext_stop_signal,
+                                                             va_provider=self.voice_activator,
+                                                             on_stop_callback=stop_speech)
+        self.interrupt_speech_thread.start()

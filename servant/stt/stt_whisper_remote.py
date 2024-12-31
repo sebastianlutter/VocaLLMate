@@ -37,7 +37,9 @@ dataset_bias = [
     "Copyright WDR 2019",
     "SWR 2021",
     "SWR 2020",
-    "Bis zum nächsten Mal."
+    "Bis zum nächsten Mal.",
+    "Untertitel",
+    "-Community"
 ]
 
 
@@ -95,10 +97,11 @@ class SpeechToTextWhisperRemote(SpeechToTextInterface):
                                 # audio is supported.
                                 wsc2.send(wav_chunk, opcode=ABNF.OPCODE_BINARY)
                     loop.run_until_complete(send_chunks())
-                except KeyboardInterrupt:
+                except KeyboardInterrupt as e:
                     # stopped by the user
                     websocket_on_close()
                     thread_stop_event.set()
+                    raise e
                 except BaseException as e:
                     self.logger.error(f"Error in send_audio_chunks: {e}")
                     websocket_on_close()
@@ -149,6 +152,9 @@ class SpeechToTextWhisperRemote(SpeechToTextInterface):
                 yield t_diff
             ws_thread.join()
             self.logger.debug(f"Transcription queue closed")
+        except KeyboardInterrupt as e:
+            # stopped by the user
+            raise e
         except BaseException as e:
             self.logger.error(f"type={type(e)}, e={e}")
             thread_stop_event.set()
