@@ -3,7 +3,7 @@ import asyncio
 import nltk
 import re
 from threading import Event
-from servant.llm.llm_prompt_template import Mode
+from servant.llm.llm_prompt_manager_interface import Mode
 from burr.examples.streamlit.application import logger
 from nltk.tokenize import sent_tokenize
 from typing import Tuple, Generator, Optional, AsyncGenerator
@@ -11,8 +11,8 @@ from burr.core import ApplicationBuilder, State, when, expr
 from burr.core.action import streaming_action, action
 from servant.servant_factory import ServantFactory
 from dotenv import load_dotenv
-from enum import Enum
-from servant.utils import title
+from servant.llm.llama_prompt_manager import PromptManager
+from servant.utils import title, clean_str_from_markdown
 
 nltk.download('punkt_tab')
 
@@ -72,7 +72,8 @@ async def choose_mode(state: State) -> AsyncGenerator[Tuple[dict, Optional[State
 async def human_input(state: State) -> Tuple[dict, State]:
     # add the prompt to history (we have no streaming yield, directly yield the final return)
     prompt = state.get("transcription_input")
-    chat_item = {"content": prompt, "role": "user"}
+    chat_item = factory.llm_provider.get_prompt_manager().add_user_entry(prompt)
+    prompt = chat_item["content"]
     title(f"human_input: {prompt}")
     return {"prompt": prompt}, state.update(prompt=prompt).append(chat_history=chat_item)
 
@@ -93,6 +94,7 @@ def exit_chat(state: State) -> Tuple[dict, State]:
     factory.human_speech_agent.say(f"Ich habe den Live Chat Modus beendet und unseren Chat geleert.")
     factory.human_speech_agent.say(f"Um mich wieder zu aktivieren sage das Wort {factory.va_provider.wakeword}.")
     factory.tts_provider.wait_until_done()
+    factory.llm_provider.get_prompt_manager().empty_history()
     return {"chat_history": [], "input_loop_counter": 0}, state.update(chat_history=[]).update(input_loop_counter=0)
 
 @streaming_action(reads=["chat_history"], writes=["response", "sentences" , "chat_history", "input_loop_counter"])
@@ -115,14 +117,7 @@ async def ai_response(state: State, stop_signal: threading.Event) -> AsyncGenera
             response+=".\nStopped generation because user ordered to do so."
             break
         # identify sentences on-the-fly out of the stream
-        # but first clean the string from newline chars. Add a . to each
-        buffer = f"{buffer}{chunk}".replace('\n','. ')
-        # remove the point we added if there is a mark char before
-        buffer = re.sub(r'([?:!.,])\.', r'\1', buffer)
-        # insert a space between sentences with no whitespace but a .
-        buffer = re.sub(r"(?<!\d)\.(?![\d\s])", ". ", buffer)
-        # remove all enumeration fragements (.1. and so on)
-        buffer = re.sub(r'\.\d+\.', '.', buffer)
+        buffer = clean_str_from_markdown(f"{buffer}{chunk}")
         # Tokenize to sentences
         sentences = sent_tokenize(text=buffer, language="german")
         #print(f"buffer (arr={len(sentences)}): {buffer} ")
@@ -155,6 +150,7 @@ async def ai_response(state: State, stop_signal: threading.Event) -> AsyncGenera
     print("SENTENCE LIST:")
     for s in sentences_list:
         print(f" - {s}")
+    chat_entry = factory.llm_provider.get_prompt_manager().add_assistant_entry(response)
     # wait until TTS and soundcard finished playback
     factory.tts_provider.wait_until_done()
     factory.tts_provider.soundcard.wait_until_playback_finished()
@@ -162,7 +158,7 @@ async def ai_response(state: State, stop_signal: threading.Event) -> AsyncGenera
            state.update(response=response)
                .update(sentences=sentences_list)
                .update(input_loop_counter=0)
-               .append(chat_history={"content": response, "role": "assistant"}))
+               .append(chat_history=chat_entry))
 
 
 def application():
@@ -217,7 +213,7 @@ def application():
             ("exit_chat", "wait_for_user_speak_input")
         )
         # init the chat history with the system prompt
-        .with_state(chat_history=[{"content": factory.llm_provider.system_prompt, "role": "assistant"}], exit_chat=False)
+        .with_state(chat_history=[], exit_chat=False, input_loop_counter=0)
         .with_entrypoint("entry_point")
         .with_tracker("local", project="servant-llm")
         .build()

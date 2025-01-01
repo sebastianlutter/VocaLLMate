@@ -14,7 +14,7 @@ services:
     volumes:
       - hugging_face_cache:/root/.cache/huggingface
     environment:
-      - WHISPER__MODEL=Systran/faster-whisper-large-v2
+      - WHISPER__MODEL=Systran/faster-whisper-large-v3
       - WHISPER__COMPUTE_TYPE=int8
       - DEFAULT_LANGUAGE=de
 #      - UVICORN_HOST=0.0.0.0

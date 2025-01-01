@@ -62,7 +62,7 @@ class HumanSpeechAgent:
             "Gute Reise!", "Viel Erfolg noch!", "Danke und tschüss!", "Alles Gute!", "Bis zum nächsten Treffen!",
             "Leb wohl!"
         ]
-        init_greetings_identity = "Ich freue mich dein Assistent zu sein! "
+        init_greetings_identity = "Alle Systeme arbeiten nominal! "
         self.init_greetings = [
             "Guten Tag!", "Hi, wie geht's?", "Schön dich zu sehen!", "Hallo und willkommen!",
             "Freut mich, dich zu treffen!", "Hallo zusammen!", "Hallo, mein Freund!",

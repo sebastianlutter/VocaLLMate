@@ -39,7 +39,8 @@ dataset_bias = [
     "SWR 2020",
     "Bis zum nächsten Mal.",
     "Untertitel",
-    "-Community"
+    "-Community",
+    "Vielen Dank."
 ]
 
 
@@ -69,7 +70,7 @@ class SpeechToTextWhisperRemote(SpeechToTextInterface):
                     for txt in dataset_bias:
                         if txt in res_txt:
                             res_txt = res_txt.replace(txt, '')
-                    if len(res_txt.strip()) > 1:
+                    if len(res_txt.strip()) > 8:
                         queue.put(res_txt.strip())  # Push the transcription result into the queue
             except json.JSONDecodeError:
                 self.logger.warning(f"got non json: {message}")

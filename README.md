@@ -54,22 +54,22 @@ To force the usage of cuda stacks you can also run:
 The application uses ENV variables to configure all aspects of the application.
 When running local use a `.env` file, else set them as host environment variables.
 
-| variable                | default                                                                                                                                                | possible values                          |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------- |
-| TTS_ENDPOINT            | http://127.0.0.1:8001/v1                                                                                                                               | any http endpoint                        |
-| TTS_PROVIDER            | openedai                                                                                                                                               | openedai, pyttsx, transformers           |
-| STT_PROVIDER            | whisper                                                                                                                                                | whisper, speech-recognition              |
-| STT_ENDPOINT            | http://127.0.0.1:8000/v1/audio/transcriptions                                                                                                          | url if remote service has been chosen    |
-| WAKEWORD_PROVIDER       | speech-recognition                                                                                                                                     | speech-recognition, open-wakeword        |
-| WAKEWORD_THRESHOLD      | 250                                                                                                                                                    | any positive integer                     |
-| WAKEWORD                | computer                                                                                                                                               | any word or short phrase                 |
-| AUDIO_PLAYBACK_DEVICE   | -1                                                                                                                                                     | the device number, negative means "auto" |
-| AUDIO_MICROPHONE_DEVICE | -1                                                                                                                                                     | the device number, negative means "auto" |
-| AUDIO_PYTHON_BACKEND    | pyaudio                                                                                                                                                | pyaudio, pyalsaaudio                     |
-| LLM_PROVIDER            | ollama                                                                                                                                                 | ollama                                   |
-| LLM_ENDPOINT            | http://127.0.0.1:11434                                                                                                                                 | any http endpoint                        |
-| LLM_PROVIDER_MODEL      | llama3.2:1b                                                                                                                                            | llama3.2:1b, llama3.2:3b                 |
-| SYSTEM_PROMPT           | Beantworte die Fragen als freundlicher und zuvorkommender Helfer. Antworte so kurz wie möglich und stelle Gegenfragen wenn der Sachverhalt unklar ist. | any system prompt string you want        |
+| variable                | default                                        | possible values                          |
+| ----------------------- |------------------------------------------------|------------------------------------------|
+| TTS_ENDPOINT            | http://127.0.0.1:8001/v1                       | any http endpoint                        |
+| TTS_PROVIDER            | openedai                                       | openedai, pyttsx, transformers           |
+| STT_PROVIDER            | whisper                                        | whisper, speech-recognition              |
+| STT_ENDPOINT            | http://127.0.0.1:8000/v1/audio/transcriptions  | url if remote service has been chosen    |
+| WAKEWORD_PROVIDER       | speech-recognition                             | speech-recognition, open-wakeword        |
+| WAKEWORD_THRESHOLD      | 250                                            | any positive integer                     |
+| WAKEWORD                | computer                                       | any word or short phrase                 |
+| AUDIO_PLAYBACK_DEVICE   | -1                                             | the device number, negative means "auto" |
+| AUDIO_MICROPHONE_DEVICE | -1                                             | the device number, negative means "auto" |
+| AUDIO_PYTHON_BACKEND    | pyaudio                                        | pyaudio, pyalsaaudio                     |
+| LLM_PROVIDER            | ollama                                         | ollama                                   |
+| LLM_ENDPOINT            | http://127.0.0.1:11434                         | any http endpoint                        |
+| LLM_PROVIDER_MODEL      | llama3.2:1b                                    | llama3.2:1b, llama3.2:3b                 |
+
 
 * Create a `.env` config file from the given example and adjust as needed
   
