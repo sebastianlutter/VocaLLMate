@@ -1,7 +1,8 @@
 import logging
 import tiktoken
 from typing import Any, Dict, Generic, Optional, TypeVar, List
-from servant.llm.llm_prompt_manager_interface import PromptManager, Mode, RemoveOldestStrategy, ReductionStrategy
+from servant.llm.llm_prompt_manager_interface import PromptManager, Mode, RemoveOldestStrategy, ReductionStrategy, \
+    GLOBAL_BASE_TEMPLATES
 
 
 class LlamaPromptManager(PromptManager[List[Dict[str, str]], Dict[str, str]]):
@@ -24,6 +25,13 @@ class LlamaPromptManager(PromptManager[List[Dict[str, str]], Dict[str, str]]):
         except Exception as e:
             self.logger.error(f"Failed to initialize tokenizer: {e}")
             raise
+        # for each mode init the history with system prompt
+        for mode in Mode:
+            self.histories[mode] = [{
+                'role': 'system',
+                'content': GLOBAL_BASE_TEMPLATES[mode.name].system_prompt
+            }]
+
 
     def set_history(self, history: List[Dict[str, str]]) -> None:
         """
@@ -41,7 +49,7 @@ class LlamaPromptManager(PromptManager[List[Dict[str, str]], Dict[str, str]]):
             if "content" not in entry or "role" not in entry:
                 self.logger.error("Each history entry must contain 'content' and 'role' keys.")
                 raise ValueError("Each history entry must contain 'content' and 'role' keys.")
-            if entry["role"] not in ["user", "assistant"]:
+            if entry["role"] not in ["user", "assistant", "system"]:
                 self.logger.error("The 'role' must be either 'user' or 'assistant'.")
                 raise ValueError("The 'role' must be either 'user' or 'assistant'.")
         # Replace the current history with the new history
@@ -54,6 +62,10 @@ class LlamaPromptManager(PromptManager[List[Dict[str, str]], Dict[str, str]]):
         Clear the history for the current mode.
         """
         self.get_history().clear()
+        self.get_history().append({
+            'role': 'system',
+            'content': GLOBAL_BASE_TEMPLATES[self.current_mode.name].system_prompt
+        })
         self.logger.info(f"History emptied for mode {self.current_mode.name}")
 
     def get_history(self) -> List[Dict[str, str]]:
@@ -79,11 +91,6 @@ class LlamaPromptManager(PromptManager[List[Dict[str, str]], Dict[str, str]]):
         """
         Add a user prompt to the current mode's history.
         """
-        # is history emtpy?
-        if not self.get_history():
-            # if this is the first entry then add the system prompt first
-            # then the user prompt afterwards.
-            user_prompt = f'{self.template.system_prompt}\n{self.get_timestamp()}\n{user_prompt}'
         entry = {"content": user_prompt, "role": "user"}
         self.get_history().append(entry)
         self.logger.info(f"Added user entry to {self.current_mode.name}: {user_prompt}")
@@ -135,3 +142,20 @@ class LlamaPromptManager(PromptManager[List[Dict[str, str]], Dict[str, str]]):
             self.reduction_strategy.reduce(self.get_history(), self.count_tokens, token_limit)
             if self.count_history_tokens() > token_limit:
                 self.logger.warning("Unable to reduce history within the token limit.")
+
+    def pretty_print_history(self) -> str:
+        """
+        Returns a formatted string representing the current mode's history.
+        Each entry is prefixed with the role (e.g., 'User', 'Assistant').
+
+        Returns:
+            A string representing the formatted history.
+        """
+        formatted_history = []
+        for entry in self.get_history():
+            role = entry.get("role", "unknown").capitalize()
+            content = entry.get("content", "")
+            formatted_history.append(f"{role}: {content}")
+        history_str = "\n".join(formatted_history)
+        self.logger.debug(f"Formatted history for mode {self.current_mode.name}:\n{history_str}")
+        return history_str

@@ -213,6 +213,10 @@ class PromptManager(ABC, Generic[H, E]):
         """
         pass
 
+    @abstractmethod
+    def pretty_print_history(self) -> str:
+        pass
+
     def get_system_prompt(self, context_data: Dict[str, str] = None) -> str:
         """
         Retrieve the formatted system prompt based on the current mode.

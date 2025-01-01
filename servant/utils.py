@@ -1,5 +1,10 @@
 import re
+
+from burr.core import State
 from fuzzywuzzy import process
+
+from main import StateKeys
+
 
 def title(msg):
     print("###########################################################################################################")
@@ -32,3 +37,13 @@ def clean_str_from_markdown(text: str):
     # remove all enumeration fragements (.1. and so on)
     buffer = re.sub(r'\.\d+\.', '.', buffer)
     return buffer
+
+def get_history(state: State):
+    """
+    Ease of use function to retrieve the history for the current mode
+    """
+    mode = state[StateKeys.mode.name]
+    histories = state[StateKeys.chat_history.name]
+    if mode not in histories:
+        raise Exception("utils.get_history: Did not find mode in current state.")
+    return histories[mode]

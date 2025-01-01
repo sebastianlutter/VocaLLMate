@@ -13,7 +13,7 @@ class LmmInterface(ABC):
 
 
     @abstractmethod
-    async def chat(self, full_chat):
+    async def chat(self, full_chat) -> str:
         pass
 
     @abstractmethod

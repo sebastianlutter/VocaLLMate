@@ -4,7 +4,7 @@ from servant.llm.llm_prompt_manager_interface import Mode
 from servant.llm.llama_prompt_manager import LlamaPromptManager
 from servant.llm.llm_interface import LmmInterface
 from servant.llm.llm_prompt_manager_interface import PromptManager, RemoveOldestStrategy
-
+from typing import Any, Dict, Generic, Optional, TypeVar, List
 
 class LmmOllamaRemote(LmmInterface):
 
@@ -15,8 +15,7 @@ class LmmOllamaRemote(LmmInterface):
         self.prompt_manager = LlamaPromptManager(initial_mode=Mode.MODUS_SELECTION,
                                                  reduction_strategy=RemoveOldestStrategy())
 
-
-    async def chat(self, full_chat):
+    async def chat(self, full_chat: List[Dict[str, str]]) -> str:
         content = self.client.chat(
                 model=self.model,
                 stream=True,
