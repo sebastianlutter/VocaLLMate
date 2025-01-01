@@ -11,11 +11,12 @@ class LmmInterface(ABC):
         self.llm_endpoint=os.getenv('LLM_ENDPOINT', 'http://127.0.0.1:11434')
         self.llm_provider_model=os.getenv('LLM_PROVIDER_MODEL', 'llama3.2:3b')
 
-        self.system_prompt=f"{self.system_prompt}"
+
     @abstractmethod
     async def chat(self, full_chat):
         pass
 
+    @abstractmethod
     def get_prompt_manager(self) -> PromptManager:
         pass
 

@@ -12,7 +12,7 @@ from burr.core.action import streaming_action, action
 from servant.servant_factory import ServantFactory
 from dotenv import load_dotenv
 from servant.llm.llama_prompt_manager import PromptManager
-from servant.utils import title, clean_str_from_markdown
+from servant.utils import title, clean_str_from_markdown, is_conversation_ending
 
 nltk.download('punkt_tab')
 
@@ -61,7 +61,7 @@ async def choose_mode(state: State) -> AsyncGenerator[Tuple[dict, Optional[State
     # now decide what we want to do
     if len(full_text) < 15:
         m = Mode.GARBAGE_INPUT
-    elif factory.llm_provider.is_conversation_ending(full_text):
+    elif is_conversation_ending(full_text):
         m = Mode.EXIT
     else:
         m = Mode.CHAT
@@ -102,7 +102,7 @@ async def ai_response(state: State, stop_signal: threading.Event) -> AsyncGenera
     stop_signal.clear()
     factory.human_speech_agent.processing_sound()
     # give the history including the last user input to the LLM to get its response
-    response_stream = factory.llm_provider.chat_stream(state["chat_history"])
+    response_stream = factory.llm_provider.chat(state["chat_history"])
     print("KI: ", end='', flush=True)
     # consume the stream and collect response while printing to console
     response = ""
