@@ -1,10 +1,47 @@
 import re
-
-from burr.core import State
 from fuzzywuzzy import process
+import nltk
+from nltk.corpus import swadesh
+from nltk.tokenize import word_tokenize
+import string
 
-from main import StateKeys
+# Ensure the necessary NLTK data is downloaded
+nltk.download('punkt', quiet=True)
+nltk.download('swadesh', quiet=True)
 
+# Load German words from the Swadesh corpus
+GERMAN_WORDS = set(word.lower() for word in swadesh.words('de'))
+
+def is_sane_input_german(input_str: str, threshold: float = 0.3) -> bool:
+    """
+    Determines if the input string is sane (contains a sufficient proportion of valid German words).
+
+    Args:
+        input_str (str): The input string from the STT engine.
+        threshold (float): The minimum proportion of valid words required to consider the input sane.
+
+    Returns:
+        bool: True if the input is sane, False otherwise.
+    """
+    if not input_str or not input_str.strip():
+        return False
+    # Tokenize the input string into words
+    tokens = word_tokenize(input_str, language='german')
+    if not tokens:
+        return False
+    valid_word_count = 0
+    total_word_count = 0
+    for token in tokens:
+        # Remove punctuation from the token
+        word = token.lower().strip(string.punctuation)
+        if word.isalpha():  # Consider only alphabetic words
+            total_word_count += 1
+            if word in GERMAN_WORDS:
+                valid_word_count += 1
+    if total_word_count == 0:
+        return False
+    proportion = valid_word_count / total_word_count
+    return proportion >= threshold
 
 def title(msg):
     print("###########################################################################################################")
@@ -38,12 +75,39 @@ def clean_str_from_markdown(text: str):
     buffer = re.sub(r'\.\d+\.', '.', buffer)
     return buffer
 
-def get_history(state: State):
+def is_sane_input_german(input_str: str, threshold: float = 0.3) -> bool:
     """
-    Ease of use function to retrieve the history for the current mode
+    Determines if the input string is sane (contains a sufficient proportion of valid German words).
+
+    Args:
+        input_str (str): The input string from the STT engine.
+        threshold (float): The minimum proportion of valid words required to consider the input sane.
+
+    Returns:
+        bool: True if the input is sane, False otherwise.
     """
-    mode = state[StateKeys.mode.name]
-    histories = state[StateKeys.chat_history.name]
-    if mode not in histories:
-        raise Exception("utils.get_history: Did not find mode in current state.")
-    return histories[mode]
+    if not input_str or not input_str.strip():
+        return False
+
+    # Tokenize the input string into words
+    tokens = word_tokenize(input_str, language='german')
+
+    if not tokens:
+        return False
+
+    valid_word_count = 0
+    total_word_count = 0
+
+    for token in tokens:
+        # Remove punctuation from the token
+        word = token.lower().strip(string.punctuation)
+        if word.isalpha():  # Consider only alphabetic words
+            total_word_count += 1
+            if word in GERMAN_WORDS:
+                valid_word_count += 1
+
+    if total_word_count == 0:
+        return False
+
+    proportion = valid_word_count / total_word_count
+    return proportion >= threshold

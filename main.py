@@ -3,29 +3,20 @@ load_dotenv()
 import threading
 import asyncio
 import nltk
+from nltk.corpus import swadesh
 from burr.core.action import streaming_action
 from burr.core import State
 from servant.llm.llm_prompt_manager_interface import Mode
 from burr.core import ApplicationBuilder, when, expr
 from typing import Tuple, Optional, AsyncGenerator
 from servant.utils import title
-from servant.burr_actions import get_user_speak_input, we_did_not_understand, human_input
-from servant.burr_actions import choose_mode, exit_chat, ai_response
-from enum import Enum
-nltk.download('punkt_tab')
+from servant.burr_actions import get_user_speak_input, we_did_not_understand, human_input, \
+    check_if_input_is_garbage, StateKeys, choose_mode, exit_mode_chat, ai_response
 
-class StateKeys(Enum):
-    """
-    An Enum to keep all possible state variable names in one place
-    and to give em init values
-    """
-    chat_history = {},
-    transcription_input = ''
-    exit_chat = False
-    input_loop_counter = 0
-    mode = Mode.MODUS_SELECTION.name
-    prompt = ''
-    response = ''
+nltk.download('punkt_tab', quiet=True)
+# Load German words from the Swadesh corpus
+GERMAN_WORDS = set(word.lower() for word in swadesh.words('de'))
+
 
 @streaming_action(reads=[], writes=[m.name for m in StateKeys])
 async def entry_point(state: State) -> AsyncGenerator[Tuple[dict, Optional[State]], None]:
@@ -39,8 +30,16 @@ async def entry_point(state: State) -> AsyncGenerator[Tuple[dict, Optional[State
         input_loop_counter=StateKeys.input_loop_counter.value,
         mode=StateKeys.mode.value,
         prompt=StateKeys.prompt.value,
-        response=StateKeys.response.value
+        response=StateKeys.response.value,
+        input_ok=True,
     ))
+
+@streaming_action(reads=[], writes=[m.name for m in StateKeys])
+async def error_exit_node(state: State) -> AsyncGenerator[Tuple[dict, Optional[State]], None]:
+    """
+    Exit node if error happened
+    """
+    yield {}, state
 
 
 def application():
@@ -60,43 +59,55 @@ def application():
                 stop_signal=stop_signal,
                 wait_for_wakeword=False
             ),
+            check_if_input_is_garbage=check_if_input_is_garbage,
             we_did_not_understand=we_did_not_understand,
-            human_input=human_input,
+            chat_human_input=human_input,
             ai_response=ai_response.bind(stop_signal=stop_signal),
             choose_mode=choose_mode,
-            exit_chat=exit_chat,
+            exit_mode_chat=exit_mode_chat,
             entry_point=entry_point
         )
         .with_transitions(
-            # entrypoint action
-            ("entry_point","wait_for_user_speak_input"),
+            #
+            # entrypoint action in CHOOSE_MODE setting
+            #
+            ("entry_point", "wait_for_user_speak_input"),
+            # and whenever we get to this node we start again from beginning
+            ("exit_mode_chat", "wait_for_user_speak_input"),
             # get first user input with wakeup word "hey computer" and send to transcription
             ("wait_for_user_speak_input", "choose_mode"),
+            # when user input was gibberish or emtpy then again get user input (get into cycle)
+            ("choose_mode", "we_did_not_understand",
+             expr(f'mode == "{Mode.MODUS_SELECTION.name}" and not input_ok')),
+            # count up to ten in the cycle before you exit
+            ("we_did_not_understand", "get_mode_speak_input",
+             expr(f'mode == "{Mode.MODUS_SELECTION.name}" and input_loop_counter < 10')),
+            # when we have more than 10 cycles to back to wake word (and thus to entrypoint)
+            ("we_did_not_understand", "exit_mode_chat",
+             expr(f'mode == "{Mode.MODUS_SELECTION.name}" and input_loop_counter >= 10')),
+            # when we got input go to choose_mode again
+            ("get_mode_speak_input", "choose_mode"),
             #
             # NORMAL LLM USER CHAT
             #
-            # else pass on to use this as human input prompt
-            ("choose_mode", "human_input", when(mode=Mode.CHAT)),
+            # when mode==CHAT then process and send input to LLM for talking
+            ("choose_mode", "chat_human_input",
+             expr(f'mode == "{Mode.CHAT.name}" and input_ok')),
             # the human input is given to the LLM to get a response
-            ("human_input", "ai_response"),
+            ("chat_human_input", "ai_response"),
             # send the AI response split_sentence to split the stream into sentence pieces
             ("ai_response", "get_user_speak_input"),
             # get speak input from user without wake word (immediately record)
-            ("get_user_speak_input", "choose_mode"),
-            #
-            # SPEAK INPUT IS GARBAGE
-            #
-            ("choose_mode", "we_did_not_understand", when(mode=Mode.GARBAGE_INPUT)),
+            ("get_user_speak_input", "check_if_input_is_garbage"),
+            # check if input is sane
+            ("check_if_input_is_garbage", "we_did_not_understand",
+             expr(f'mode == "{Mode.CHAT.name}" and not input_ok')),
             # directly go back to record again. Cycle until we have something
-            ("we_did_not_understand", "get_user_speak_input", expr(f"input_loop_counter < 10")),
+            ("we_did_not_understand", "get_user_speak_input",
+             expr(f'mode == "{Mode.CHAT.name}" and input_loop_counter < 10')),
             # if we get no useful input than to back to wake word mode
-            ("we_did_not_understand", "exit_chat"),
-            #
-            # END NORMAL LLM CHAT CYCLE (BACK TO WAKE WORD)
-            #
-            # if user wants to end the conversation we go back to listen to the wake word
-            ("choose_mode", "exit_chat", when(mode=Mode.EXIT)),
-            ("exit_chat", "wait_for_user_speak_input")
+            ("we_did_not_understand", "exit_mode_chat",
+             expr(f'mode == "{Mode.CHAT.name}" and input_loop_counter >= 10')),
         )
         # init the chat history with the system prompt
 #        .with_state(chat_history=[], exit_chat=False, input_loop_counter=0)

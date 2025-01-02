@@ -1,18 +1,96 @@
 import threading
 import re
-from importlib.metadata import entry_points
 from threading import Event
+from enum import Enum
 from servant.llm.llm_prompt_manager_interface import Mode
 from burr.examples.streamlit.application import logger
 from nltk.tokenize import sent_tokenize
 from typing import Tuple, Optional, AsyncGenerator
 from burr.core import State
 from burr.core.action import streaming_action, action
-from servant.utils import title, clean_str_from_markdown, is_conversation_ending
+from servant.utils import title, clean_str_from_markdown, is_conversation_ending, is_sane_input_german
 from servant.servant_factory import ServantFactory
 
 first_run = True
 factory = ServantFactory()
+
+
+class StateKeys(Enum):
+    """
+    An Enum to keep all possible state variable names in one place
+    and to give em init values
+    """
+    chat_history = {},
+    transcription_input = ''
+    exit_chat = False
+    input_loop_counter = 0
+    mode = Mode.MODUS_SELECTION.name
+    prompt = ''
+    input_ok = True
+    response = ''
+
+def get_mode_from_str(str: str):
+    for mode in Mode:
+        if mode.name in str:
+            return mode
+    raise Exception(f"Did not find \"{str}\" in Mode enum.")
+
+@action(reads=["input_loop_counter"], writes=["input_loop_counter"])
+def we_did_not_understand(state: State) -> Tuple[dict, State]:
+    title("We did not understand")
+    counter = state.get("input_loop_counter")
+    if counter is None:
+        counter=1
+    else:
+        counter += 1
+    factory.human_speech_agent.engage_input_beep()
+    return {"input_loop_counter": counter}, state.update(input_loop_counter=counter)
+
+@action(reads=[], writes=["chat_history", "input_loop_counter"])
+def exit_mode_chat(state: State) -> Tuple[dict, State]:
+    title("exit_chat")
+    # say something to the user
+    factory.human_speech_agent.say(f"Ich habe den Live Chat Modus beendet und unseren Chat geleert.")
+    factory.human_speech_agent.say(f"Um mich wieder zu aktivieren sage das Wort {factory.va_provider.wakeword}.")
+    factory.tts_provider.wait_until_done()
+    prompt_manager = factory.llm_provider.get_prompt_manager()
+    # clear history of the current mode chat
+    prompt_manager.empty_history()
+    return {"chat_history": [], "input_loop_counter": 0}, state.update(chat_history=[]).update(input_loop_counter=0)
+
+@streaming_action(reads=["transcription_input","mode"], writes=["mode", "chat_history", "input_ok"])
+async def choose_mode(state: State) -> AsyncGenerator[Tuple[dict, Optional[State]], None]:
+    # first of all collect the results from the stream (breaking stream here)
+    full_text = state["transcription_input"]
+    # make easy check if input is a valid sentence at all
+    if not is_sane_input_german(full_text):
+        # if we got no useful string then directly return
+        yield {"input_ok": False}, state.update(input_ok=False)
+    # We have some text input, now decide what mode we need using the LLM
+    prompt_manager = factory.llm_provider.get_prompt_manager()
+    prompt_manager.set_mode(Mode.MODUS_SELECTION)
+    prompt_manager.empty_history()
+    prompt_manager.add_user_entry(full_text)
+    full_res = ''
+    async for res in factory.llm_provider.chat(prompt_manager.get_history()):
+        print(f"{res}")
+        full_res += res
+    # check for uppercase mode name
+    m = get_mode_from_str(full_res)
+    # check if the mode has been changed
+    if m.name != state[StateKeys.mode.name]:
+        # if it has changed then empty the history
+        prompt_manager.empty_history()
+    if m.name == Mode.GARBAGE_INPUT:
+        # do not change the mode itself if input is not ok
+        yield {"input_ok": False}, state.update(input_ok=False)
+    else:
+        # else return the mode itself and new history
+        # switch the mode of the prompt manager
+        title(f"choose_mode: {m.name}")
+        prompt_manager.set_mode(m)
+        yield ({"input_ok": True, "mode": m.name},
+            state.update(mode=m.name).update(chat_history=prompt_manager.get_history()).update(input_ok=True))
 
 @streaming_action(reads=[], writes=["transcription_input"])
 async def get_user_speak_input(state: State, stop_signal: Event, wait_for_wakeword: bool = True) -> AsyncGenerator[Tuple[dict, Optional[State]], None]:
@@ -38,70 +116,20 @@ async def get_user_speak_input(state: State, stop_signal: Event, wait_for_wakewo
     # when all is done update state
     yield {"transcription_input": full_text}, state.update(transcription_input=full_text)
 
-@streaming_action(reads=["transcription_input"], writes=["mode"])
-async def choose_mode(state: State) -> AsyncGenerator[Tuple[dict, Optional[State]], None]:
-    # first of all collect the results from the stream (breaking stream here)
-    full_text = state["transcription_input"]
-    # now decide what we want to do
-    prompt_manager = factory.llm_provider.get_prompt_manager()
-    prompt_manager.set_mode(Mode.MODUS_SELECTION)
-    prompt_manager.empty_history()
-    prompt_manager.add_user_entry(full_text)
-    full_res = ''
-    async for res in factory.llm_provider.chat(prompt_manager.get_history()):
-        print(f"{res}")
-        full_res += res
-    m = None
-    # check for uppercase mode name
-    for mode in Mode:
-        if mode.name in full_res:
-            m=mode.name
-            break
-    title(f"choose_mode: {m}")
-    yield {"mode": m}, state.update(mode=m)
-
-@streaming_action(reads=["transcription_input"], writes=["mode"])
-async def choose_mode_old(state: State) -> AsyncGenerator[Tuple[dict, Optional[State]], None]:
-    # first of all collect the results from the stream (breaking stream here)
-    full_text = state["transcription_input"]
-    # now decide what we want to do
-    if len(full_text) < 15:
-        m = Mode.GARBAGE_INPUT
-    elif is_conversation_ending(full_text):
-        m = Mode.EXIT
-    else:
-        m = Mode.CHAT
-    title(f"choose_mode: {m}")
-    yield {"mode": m}, state.update(mode=m)
+@streaming_action(reads=["transcription_input"], writes=["input_ok"])
+async def check_if_input_is_garbage(state: State) -> AsyncGenerator[Tuple[dict, Optional[State]], None]:
+    input_str = state[StateKeys.transcription_input.name]
+    input_ok = is_sane_input_german(input_str)
+    yield {"input_ok": input_ok}, state.update(input_ok=input_ok)
 
 @action(reads=["transcription_input"], writes=["prompt", "chat_history"])
 async def human_input(state: State) -> Tuple[dict, State]:
     # add the prompt to history (we have no streaming yield, directly yield the final return)
-    prompt = state.get("transcription_input")
+    prompt = state.get(StateKeys.transcription_input.name)
     chat_item = factory.llm_provider.get_prompt_manager().add_user_entry(prompt)
-    prompt = chat_item["content"]
     title(f"human_input: {prompt}")
-    return {"prompt": prompt}, state.update(prompt=prompt).append(chat_history=chat_item)
-
-@action(reads=["input_loop_counter"], writes=["input_loop_counter"])
-def we_did_not_understand(state: State) -> Tuple[dict, State]:
-    title("We did not understand")
-    counter = state.get("input_loop_counter")
-    if counter is None:
-        counter=1
-    else:
-        counter += 1
-    factory.human_speech_agent.engage_input_beep()
-    return {"input_loop_counter": counter}, state.update(input_loop_counter=counter)
-
-@action(reads=[], writes=["chat_history", "input_loop_counter"])
-def exit_chat(state: State) -> Tuple[dict, State]:
-    title("exit_chat")
-    factory.human_speech_agent.say(f"Ich habe den Live Chat Modus beendet und unseren Chat geleert.")
-    factory.human_speech_agent.say(f"Um mich wieder zu aktivieren sage das Wort {factory.va_provider.wakeword}.")
-    factory.tts_provider.wait_until_done()
-    factory.llm_provider.get_prompt_manager().empty_history()
-    return {"chat_history": [], "input_loop_counter": 0}, state.update(chat_history=[]).update(input_loop_counter=0)
+    # overwrite the current history with the prompt manager one
+    yield {"prompt": prompt}, state.update(prompt=prompt).update(chat_history=chat_item)
 
 @streaming_action(reads=["chat_history"], writes=["response", "sentences" , "chat_history", "input_loop_counter"])
 async def ai_response(state: State, stop_signal: threading.Event) -> AsyncGenerator[Tuple[dict, Optional[State]], None]:

@@ -8,7 +8,7 @@ import datetime
 # Define Modes
 class Mode(Enum):
     EXIT = """
-    Wähle EXIT wenn der User das Gespräch beenden will oder sich verabschieded hat.
+    Wähle EXIT wenn der User das Gespräch beenden oder abbrechen will oder sich verabschieded hat.
     """
     GARBAGE_INPUT = """
     Wähle GARBAGE_INPUT wenn die Anfrage unverständlich oder unvollständig erscheint
@@ -27,6 +27,7 @@ class PromptTemplate:
     mode: Mode
     system_prompt: str
     user_say_str: str
+    description: str
 
     def format_prompt(self, context_data: Dict[str, str] = None) -> str:
         if context_data is None:
@@ -41,6 +42,7 @@ E = TypeVar('E')  # Entry type
 GLOBAL_BASE_TEMPLATES: Dict[str, PromptTemplate] = {
     Mode.MODUS_SELECTION.name: PromptTemplate(
         mode=Mode.MODUS_SELECTION,
+        description='Modus Auswahl',
         system_prompt=(
                 "Du musst genau einen der folgenden Modi (GROSSBUCHSTABEN) wählen: "
                 f"{', '.join([mode.name for mode in Mode if mode != Mode.MODUS_SELECTION])}\n"
@@ -53,6 +55,7 @@ GLOBAL_BASE_TEMPLATES: Dict[str, PromptTemplate] = {
     ),
     Mode.CHAT.name: PromptTemplate(
         mode=Mode.CHAT,
+        description='Live Chat Modus',
         system_prompt=(
             'Beantworte die Fragen als freundlicher und zuvorkommender Helfer. '
             'Antworte kindergerecht für Kinder ab acht Jahren. '
@@ -62,6 +65,7 @@ GLOBAL_BASE_TEMPLATES: Dict[str, PromptTemplate] = {
     ),
     Mode.LED_CONTROL.name: PromptTemplate(
         mode=Mode.LED_CONTROL,
+        description='LED Kontroll Modus',
         system_prompt=(
             "Du steuerst LED-Lichter über eine REST-API. "
             "Der User möchte sie möglicherweise ein- oder ausschalten oder die Farbe oder Helligkeit ändern. "
@@ -78,12 +82,19 @@ GLOBAL_BASE_TEMPLATES: Dict[str, PromptTemplate] = {
     ),
     Mode.GARBAGE_INPUT.name: PromptTemplate(
         mode=Mode.GARBAGE_INPUT,
+        description='Unverständlicher Input',
         system_prompt=(
             "Die Benutzereingabe ist unverständlich oder unvollständig. "
             "Bitte fordere den Benutzer auf, die Anfrage zu präzisieren."
         ),
         user_say_str=''
     ),
+    Mode.EXIT.name: PromptTemplate(
+        mode=Mode.EXIT,
+        description="Beenden",
+        system_prompt='',
+        user_say_str=''
+    )
 }
 
 # Define ReductionStrategy
@@ -123,7 +134,6 @@ class PromptManager(ABC, Generic[H, E]):
     """
     Abstract base class for managing prompt histories and interactions with multi-mode support.
     """
-
     def __init__(self, initial_mode: Mode, reduction_strategy: ReductionStrategy):
         if reduction_strategy is None:
             self.reduction_strategy = RemoveOldestStrategy()
