@@ -13,7 +13,7 @@ The application graph looks like this:
 
 ## Folders with -stack in their name
 
-Each folder with `-stack` in their name contains a component that can be started using docker compose. For ease of 
+Each folder with `-stack` in their name contains a component that can be started using docker compose. For ease of
 use the script `stacks.sh` can be used to start and stop them.
 
 ```
@@ -25,7 +25,7 @@ use the script `stacks.sh` can be used to start and stop them.
 ./stacks.sh stop
 ```
 
-The script automatically checks if nvidia/cuda is available. If so the `docker-compose-cuda.yaml` files are used (NVIDIA container). Else the cpu stacks in `docker-compose.yaml` are used. 
+The script automatically checks if nvidia/cuda is available. If so the `docker-compose-cuda.yaml` files are used (NVIDIA container). Else the cpu stacks in `docker-compose.yaml` are used.
 
 To force the usage of cuda stacks you can also run:
 
@@ -36,7 +36,7 @@ To force the usage of cuda stacks you can also run:
 ## The application
 
 * First create a venv and install dependencies
-  
+
   ```
   python3 -mvenv venv
   source venv/bin/activate
@@ -44,11 +44,11 @@ To force the usage of cuda stacks you can also run:
   ```
 
 * Then run application (default configuration is used then, see below)
-  
+
   ```
   python3 main.py
   ```
-  
+
   ## Configuration
 
 The application uses ENV variables to configure all aspects of the application.
@@ -72,7 +72,7 @@ When running local use a `.env` file, else set them as host environment variable
 
 
 * Create a `.env` config file from the given example and adjust as needed
-  
+
   ```
   cp _env .env
   ```
@@ -82,7 +82,7 @@ settings you want to overwrite.
 
 ## PyTTSX
 
-The pyttsx package can use multiple backends from the host linux system for text-to-speech synthesis. Consider 
+The pyttsx package can use multiple backends from the host linux system for text-to-speech synthesis. Consider
 to install the following:
 
 ```
@@ -117,23 +117,22 @@ backend. First a model needs to be downloaded from https://alphacephei.com/vosk/
 Extract the ZIP in project root and rename the extracted filename to `model/` so VOSK is able to find it.
 
 ```
-unzip vosk-model-de-0.21.zip 
+unzip vosk-model-de-0.21.zip
 mv vosk-model-de-0.21 model
 ```
 
-## PyTorch and Transformers
+## Pyaudio und portaudio
 
-When using `transformers` in `TTS_PROVIDER` these additional dependencies need to be installed:
-
+Pyaudio is used to access the soundcard. To install the python dependency you
+may need to install portaudio development files into your host system:
 ```
-pip3 install transformers==4.47.0
-pip3 install torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1
+apt install portaudio19-dev
 ```
 
 ## Docker environment with PyTorch 2.5.1 GPU support
 
 There is a development docker to run the application in a pytorch enabled environment with GPU support. The `Dockerfile`
-and `runDevDocker.sh` script can be used for this purpose. 
+and `runDevDocker.sh` script can be used for this purpose.
 
 Build and run the dev docker and mount the project into the workdir:
 
