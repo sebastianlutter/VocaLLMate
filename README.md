@@ -129,6 +129,13 @@ may need to install portaudio development files into your host system:
 apt install portaudio19-dev
 ```
 
+## PyDub
+
+PyDub uses ffmpeg binaries on the host system, make sure ffmpeg is installed in the host system
+```
+apt install ffmpeg
+```
+
 ## Docker environment with PyTorch 2.5.1 GPU support
 
 There is a development docker to run the application in a pytorch enabled environment with GPU support. The `Dockerfile`

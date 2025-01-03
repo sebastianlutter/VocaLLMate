@@ -40,7 +40,8 @@ dataset_bias = [
     "Bis zum nächsten Mal.",
     "Untertitel",
     "-Community",
-    "Vielen Dank."
+    "Vielen Dank.",
+    " Und tschau."
 ]
 
 

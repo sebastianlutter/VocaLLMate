@@ -70,9 +70,9 @@ class HumanSpeechAgent:
             "Herzlich willkommen!", "Hallo, schön dich hier zu haben!", "Hey, alles klar?",
             "Hallo, schön dich kennenzulernen!", "Hallo, wie läuft's?", "Einen schönen Tag!", "Schön, dass du da bist!"
         ]
-        self.init_greetings = list(map(lambda g: g + init_greetings_identity, self.init_greetings))
+        self.init_greetings = list(map(lambda g: f'{init_greetings_identity} {g}', self.init_greetings))
         self.did_not_understand = [
-            "Das war unverständlich, noch mal bitte"
+            "Das war unverständlich, bitte wiederholen"
         ]
         self.explain_sentence = "Sag das wort computer um zu starten."
         self._warmup_cache()

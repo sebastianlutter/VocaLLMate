@@ -10,11 +10,11 @@ class Mode(Enum):
     EXIT = """
     Wähle EXIT wenn der User das Gespräch beenden oder abbrechen will oder sich verabschieded hat.
     """
-    GARBAGE_INPUT = """
-    Wähle GARBAGE_INPUT wenn die Anfrage unverständlich oder unvollständig erscheint
+    GARBAGEINPUT = """
+    Wähle GARBAGEINPUT wenn die Anfrage unverständlich oder unvollständig erscheint
     """
-    LED_CONTROL = """
-    Wähle LED_CONTROL wenn der User die Beleuchtung verändern oder eine Farbe haben will.
+    LEDCONTROL = """
+    Wähle LEDCONTROL wenn der User die Beleuchtung verändern oder eine Farbe haben will.
     """
     CHAT = """
     Wähle CHAT wenn der User eine andere bisher nicht genannte Frage gestellt hat.
@@ -63,8 +63,8 @@ GLOBAL_BASE_TEMPLATES: Dict[str, PromptTemplate] = {
         ),
         user_say_str='Lass uns etwas plaudern, Modus ist nun CHAT'
     ),
-    Mode.LED_CONTROL.name: PromptTemplate(
-        mode=Mode.LED_CONTROL,
+    Mode.LEDCONTROL.name: PromptTemplate(
+        mode=Mode.LEDCONTROL,
         description='LED Kontroll Modus',
         system_prompt=(
             "Du steuerst LED-Lichter über eine REST-API. "
@@ -80,8 +80,8 @@ GLOBAL_BASE_TEMPLATES: Dict[str, PromptTemplate] = {
         ),
         user_say_str=''
     ),
-    Mode.GARBAGE_INPUT.name: PromptTemplate(
-        mode=Mode.GARBAGE_INPUT,
+    Mode.GARBAGEINPUT.name: PromptTemplate(
+        mode=Mode.GARBAGEINPUT,
         description='Unverständlicher Input',
         system_prompt=(
             "Die Benutzereingabe ist unverständlich oder unvollständig. "

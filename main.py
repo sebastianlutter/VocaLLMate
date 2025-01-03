@@ -11,28 +11,12 @@ from burr.core import ApplicationBuilder, when, expr
 from typing import Tuple, Optional, AsyncGenerator
 from servant.utils import title
 from servant.burr_actions import get_user_speak_input, we_did_not_understand, human_input, \
-    check_if_input_is_garbage, StateKeys, choose_mode, exit_mode_chat, ai_response
+    check_if_input_is_garbage, StateKeys, choose_mode, exit_mode_chat, ai_response, entry_point
 
 nltk.download('punkt_tab', quiet=True)
 # Load German words from the Swadesh corpus
 GERMAN_WORDS = set(word.lower() for word in swadesh.words('de'))
 
-
-@streaming_action(reads=[], writes=[m.name for m in StateKeys])
-async def entry_point(state: State) -> AsyncGenerator[Tuple[dict, Optional[State]], None]:
-    """
-    Init all state variables with StateKeys enum
-    """
-    yield ({ m.name: m.value for m in StateKeys }, state.update(
-        chat_history=StateKeys.chat_history.value,
-        transcription_input=StateKeys.transcription_input.value,
-        exit_chat=StateKeys.exit_chat.value,
-        input_loop_counter=StateKeys.input_loop_counter.value,
-        mode=StateKeys.mode.value,
-        prompt=StateKeys.prompt.value,
-        response=StateKeys.response.value,
-        input_ok=True,
-    ))
 
 @streaming_action(reads=[], writes=[m.name for m in StateKeys])
 async def error_exit_node(state: State) -> AsyncGenerator[Tuple[dict, Optional[State]], None]:
@@ -72,8 +56,6 @@ def application():
             # entrypoint action in CHOOSE_MODE setting
             #
             ("entry_point", "wait_for_user_speak_input"),
-            # and whenever we get to this node we start again from beginning
-            ("exit_mode_chat", "wait_for_user_speak_input"),
             # get first user input with wakeup word "hey computer" and send to transcription
             ("wait_for_user_speak_input", "choose_mode"),
             # when user input was gibberish or emtpy then again get user input (get into cycle)
@@ -108,6 +90,13 @@ def application():
             # if we get no useful input than to back to wake word mode
             ("we_did_not_understand", "exit_mode_chat",
              expr(f'mode == "{Mode.CHAT.name}" and input_loop_counter >= 10')),
+            #
+            # A catch all target if modus is not supported yet
+            #
+            ("choose_mode", "exit_mode_chat",
+             expr(f'not (mode in ["{Mode.MODUS_SELECTION.name}", "{Mode.CHAT.name}", ""])')),
+            # and whenever we get to this node we start again from beginning
+            ("exit_mode_chat", "wait_for_user_speak_input")
         )
         # init the chat history with the system prompt
 #        .with_state(chat_history=[], exit_chat=False, input_loop_counter=0)

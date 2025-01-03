@@ -35,6 +35,23 @@ def get_mode_from_str(str: str):
             return mode
     raise Exception(f"Did not find \"{str}\" in Mode enum.")
 
+@streaming_action(reads=[], writes=[m.name for m in StateKeys])
+async def entry_point(state: State) -> AsyncGenerator[Tuple[dict, Optional[State]], None]:
+    """
+    Init all state variables with StateKeys enum
+    """
+    factory.human_speech_agent.say_init_greeting()
+    yield ({ m.name: m.value for m in StateKeys }, state.update(
+        chat_history=StateKeys.chat_history.value,
+        transcription_input=StateKeys.transcription_input.value,
+        exit_chat=StateKeys.exit_chat.value,
+        input_loop_counter=StateKeys.input_loop_counter.value,
+        mode=StateKeys.mode.value,
+        prompt=StateKeys.prompt.value,
+        response=StateKeys.response.value,
+        input_ok=True,
+    ))
+
 @action(reads=["input_loop_counter"], writes=["input_loop_counter"])
 def we_did_not_understand(state: State) -> Tuple[dict, State]:
     title("We did not understand")
@@ -81,7 +98,7 @@ async def choose_mode(state: State) -> AsyncGenerator[Tuple[dict, Optional[State
     if m.name != state[StateKeys.mode.name]:
         # if it has changed then empty the history
         prompt_manager.empty_history()
-    if m.name == Mode.GARBAGE_INPUT:
+    if m.name == Mode.GARBAGEINPUT:
         # do not change the mode itself if input is not ok
         yield {"input_ok": False}, state.update(input_ok=False)
     else:
@@ -129,14 +146,15 @@ async def human_input(state: State) -> Tuple[dict, State]:
     chat_item = factory.llm_provider.get_prompt_manager().add_user_entry(prompt)
     title(f"human_input: {prompt}")
     # overwrite the current history with the prompt manager one
-    yield {"prompt": prompt}, state.update(prompt=prompt).update(chat_history=chat_item)
+    return {"prompt": prompt}, state.update(prompt=prompt).append(chat_history=chat_item)
 
 @streaming_action(reads=["chat_history"], writes=["response", "sentences" , "chat_history", "input_loop_counter"])
 async def ai_response(state: State, stop_signal: threading.Event) -> AsyncGenerator[Tuple[dict, Optional[State]], None]:
     stop_signal.clear()
     factory.human_speech_agent.processing_sound()
     # give the history including the last user input to the LLM to get its response
-    response_stream = factory.llm_provider.chat(state["chat_history"])
+    history = state["chat_history"]
+    response_stream = factory.llm_provider.chat(history)
     print("KI: ", end='', flush=True)
     # consume the stream and collect response while printing to console
     response = ""
