@@ -90,6 +90,9 @@ def application():
             # if we get no useful input than to back to wake word mode
             ("we_did_not_understand", "exit_mode_chat",
              expr(f'mode == "{Mode.CHAT.name}" and input_loop_counter >= 10')),
+            # if input is usable go back to step chat_human_input
+            ("check_if_input_is_garbage", "chat_human_input",
+             expr(f'mode == "{Mode.CHAT.name}" and input_ok')),
             #
             # A catch all target if modus is not supported yet
             #

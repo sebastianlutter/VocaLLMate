@@ -143,10 +143,11 @@ async def check_if_input_is_garbage(state: State) -> AsyncGenerator[Tuple[dict, 
 async def human_input(state: State) -> Tuple[dict, State]:
     # add the prompt to history (we have no streaming yield, directly yield the final return)
     prompt = state.get(StateKeys.transcription_input.name)
-    chat_item = factory.llm_provider.get_prompt_manager().add_user_entry(prompt)
+    factory.llm_provider.get_prompt_manager().add_user_entry(prompt)
     title(f"human_input: {prompt}")
     # overwrite the current history with the prompt manager one
-    return {"prompt": prompt}, state.update(prompt=prompt).append(chat_history=chat_item)
+    return ({"prompt": prompt},
+            state.update(prompt=prompt).update(chat_history=factory.llm_provider.get_prompt_manager().get_history()))
 
 @streaming_action(reads=["chat_history"], writes=["response", "sentences" , "chat_history", "input_loop_counter"])
 async def ai_response(state: State, stop_signal: threading.Event) -> AsyncGenerator[Tuple[dict, Optional[State]], None]:
