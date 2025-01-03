@@ -76,6 +76,7 @@ GLOBAL_BASE_TEMPLATES: Dict[str, PromptTemplate] = {
             "brightness: Helligkeit anpassen (Wertebereich 10–255).\n"
             "\nStelle sicher, dass deine endgültige Ausgabe ein kurzes JSON-Snippet im folgendem Format ist:\n"
             "{ 'action': 'on', 'rgb': [255, 0, 0], 'brightness': 128, 'colortemp': 3000, 'scene': 1}\n"
+            "Der action parameter ist mandatory, andere parameter sind optional."
             "Beende deine Antwort danach. Keine weiteren Erklärungen, Haftungsausschlüsse oder zusätzlicher Text.\n"
         ),
         user_say_str=''

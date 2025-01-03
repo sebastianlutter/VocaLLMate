@@ -1,7 +1,11 @@
 import threading
 import re
+import json
 from threading import Event
 from enum import Enum
+
+from click import command
+
 from servant.llm.llm_prompt_manager_interface import Mode
 from burr.examples.streamlit.application import logger
 from nltk.tokenize import sent_tokenize
@@ -28,12 +32,32 @@ class StateKeys(Enum):
     prompt = ''
     input_ok = True
     response = ''
+    command = ''
 
 def get_mode_from_str(str: str):
     for mode in Mode:
         if mode.name in str:
             return mode
     raise Exception(f"Did not find \"{str}\" in Mode enum.")
+
+@streaming_action(reads=['prompt'], writes=['input_ok', 'command'])
+async def mode_led_human_input(state: State) -> Tuple[dict, Optional[State]]:
+    #TODO: check if we get everything we need to do a LED command
+    prompt = state["prompt"]
+    # We have some text input, now decide what mode we need using the LLM
+    prompt_manager = factory.llm_provider.get_prompt_manager()
+    prompt_manager.add_user_entry(prompt)
+    full_res = ''
+    async for res in factory.llm_provider.chat(prompt_manager.get_history()):
+        print(f"{res}")
+        full_res += res
+    # check if it is valid json
+    parsed_command = json.loads(full_res.strip())
+    input_ok= parsed_command['action'].lower() != 'invalid'
+    # TODO: control the LED here! Or add a own action?!?
+    title(f"LED set: {command}")
+    return ({'command': parsed_command, 'input_ok': input_ok},
+            state.update(command=prompt).update(input_ok=input_ok))
 
 @streaming_action(reads=[], writes=[m.name for m in StateKeys])
 async def entry_point(state: State) -> AsyncGenerator[Tuple[dict, Optional[State]], None]:
@@ -50,10 +74,12 @@ async def entry_point(state: State) -> AsyncGenerator[Tuple[dict, Optional[State
         prompt=StateKeys.prompt.value,
         response=StateKeys.response.value,
         input_ok=True,
+        command=""
     ))
 
 @action(reads=["input_loop_counter"], writes=["input_loop_counter"])
 def we_did_not_understand(state: State) -> Tuple[dict, State]:
+    #TODO: implement that we use some state string we say to the user if filled
     title("We did not understand")
     counter = state.get("input_loop_counter")
     if counter is None:
@@ -64,7 +90,7 @@ def we_did_not_understand(state: State) -> Tuple[dict, State]:
     return {"input_loop_counter": counter}, state.update(input_loop_counter=counter)
 
 @action(reads=[], writes=["chat_history", "input_loop_counter"])
-def exit_mode_chat(state: State) -> Tuple[dict, State]:
+def exit_mode(state: State) -> Tuple[dict, State]:
     title("exit_chat")
     # say something to the user
     factory.human_speech_agent.say(f"Ich habe den Live Chat Modus beendet und unseren Chat geleert.")
