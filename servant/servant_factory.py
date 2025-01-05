@@ -12,3 +12,4 @@ class ServantFactory:
         self.llm_provider = LlmFactory()
         self.va_provider = VoiceActivatedRecordingFactory()
         self.human_speech_agent = HumanSpeechAgent()
+

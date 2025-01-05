@@ -63,7 +63,7 @@ def application():
             ("wait_for_user_speak_input", "choose_mode"),
             # when user input was gibberish or emtpy then again get user input (get into cycle)
             ("choose_mode", "mode_select_we_did_not_understand",
-             expr(f'mode == "{Mode.MODUS_SELECTION.name}" and not input_ok')),
+             expr(f'mode == "{Mode.GARBAGEINPUT.name}" or not input_ok')),
             # count up to ten in the cycle before you exit
             ("mode_select_we_did_not_understand", "get_mode_speak_input",
              expr(f'input_loop_counter < 10')),
@@ -111,6 +111,7 @@ def application():
             # when mode==LEDCONTROL then process and send input to LLM for talking
             ("choose_mode", "human_input",
              expr(f'mode == "{Mode.LEDCONTROL.name}" and input_ok')),
+            # get back to direct record
             ("choose_mode", "get_user_speak_input",
              expr(f'mode == "{Mode.LEDCONTROL.name}" and not input_ok')),
             # try to get a LED command from user prompt
@@ -147,7 +148,6 @@ async def run(app):
             print("FINAL: sentences="+item["sentences"], end="\n")
         else:
             print(f"FINAL: item={item}")
-    #result = await result.get()
     title("Application finished")
 
 

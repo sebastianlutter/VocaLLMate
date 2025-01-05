@@ -14,10 +14,10 @@ class Mode(Enum):
     Wähle GARBAGEINPUT wenn die Anfrage unverständlich oder unvollständig erscheint
     """
     LEDCONTROL = """
-    Wähle LEDCONTROL wenn der User die Beleuchtung verändern oder eine Farbe haben will.
+    Wähle LEDCONTROL wenn der User die Beleuchtung oder das Licht verändern, ein oder ausschalten möchte.
     """
     CHAT = """
-    Wähle CHAT wenn der User eine andere bisher nicht genannte Frage gestellt hat.
+    Wähle CHAT wenn der User eine andere bisher nicht genannte Frage gestellt hat, oder sonstiger Small Talk oder verständlichen Satz ohne Bezug zu den anderen Themen. Im Zweifel diese Option wählen wenn der Input eine valide Frage darstellt.
     """
     MODUS_SELECTION = ''
 
@@ -66,19 +66,72 @@ GLOBAL_BASE_TEMPLATES: Dict[str, PromptTemplate] = {
     Mode.LEDCONTROL.name: PromptTemplate(
         mode=Mode.LEDCONTROL,
         description='LED Kontroll Modus',
-        system_prompt=(
-            "Du steuerst LED-Lichter über eine REST-API. "
-            "Der User möchte sie möglicherweise ein- oder ausschalten oder die Farbe oder Helligkeit ändern. "
-            "Parameter und mögliche Werte:\n"
-            "action: on, off oder invalid wenn User prompt keinen Sinn ergibt.\n"
-            "rgb: Array mit drei Elementen, jeweils von 0 bis 255.\n"
-            "colortemp: Farbtemperatur setzen (2200K bis 6500K).\n"
-            "brightness: Helligkeit anpassen (Wertebereich 10–255).\n"
-            "\nStelle sicher, dass deine endgültige Ausgabe ein kurzes JSON-Snippet im folgendem Format ist:\n"
-            "{ 'action': 'on', 'rgb': [255, 0, 0], 'brightness': 128, 'colortemp': 3000, 'scene': 1}\n"
-            "Der action parameter ist mandatory, andere parameter sind optional."
-            "Beende deine Antwort danach. Keine weiteren Erklärungen, Haftungsausschlüsse oder zusätzlicher Text.\n"
-        ),
+        system_prompt="""
+Du steuerst LED-Lichter per JSON requests. 
+Der User möchte sie möglicherweise ein- oder ausschalten oder die Farbe oder Helligkeit ändern. 
+
+Parameter und mögliche Werte:
+- action: on, off. Immer on ausser das Licht soll explicit ausgeschalten werden
+- rgbww: Array mit fünf Elementen: Rot, Grün, Blau, kaltes Weiß, warmes Weiß (jeweils von 0 bis 255).
+- colortemp: Farbtemperatur setzen (2200K bis 6500K).
+- brightness: Helligkeit anpassen (Wertebereich 10–255).
+- scene von 1 bis 32 ruft vordefinierte (oft dynamische) Szenen auf.  
+- scene 0 wird für benutzerdefinierte Farben oder Farbtemperaturen genutzt.  
+- speed (0–100) ist nur für dynamische Szenen relevant und bestimmt die Geschwindigkeit der Farbübergänge.    
+- temp oder rgbww werden nur beachtet, wenn sceneId = 0. 
+
+Stelle sicher, dass deine endgültige Ausgabe ein kurzes JSON-Snippet im folgendem Format ist:
+Der action parameter ist mandatory, andere parameter sind je nach Modus zu wählen.
+            
+Scene ID Reference (Tabelle)
+
+| scene | Scene Name   | Beschreibung / Hinweise                                                      | Statisch oder Dynamisch? | Typischerweise relevante Parameter 
+|--------------|-------------------|----------------------------------------------------------------------------------|------------------------------|----------------------------|
+| 1            | Ocean            | Langsame Farbwechsel in Blau- und Grüntönen.                                      | Dynamisch                    |  speed |
+| 2            | Romance          | Warme, langsame Überblendungen in Rosa-, Rot- und Violetttönen.                  | Dynamisch                    |  speed  |
+| 3            | Sunset           | Tiefe Orange- und Rottöne, die einen Sonnenuntergang nachahmen.                  | Dynamisch                    |  speed  |
+| 4            | Party            | Helle, lebhafte Farbwechsel.                                                     | Dynamisch                    |  speed  |
+| 5            | Fireplace        | Flackernde Rot/Orange-Töne, ähnlich einem Kaminfeuer.                            | Dynamisch                    |  speed  |
+| 6            | Cozy             | Warme Orange/Brauntöne in dezenter Übergangsform.                                 | Dynamisch                    |  speed |
+| 7            | Forest           | Grüne und erdige Farbtöne.                                                       | Dynamisch                    |  speed  |
+| 8            | Pastel Colors    | Sanfte Pastell-Farbwechsel (z.B. hellblau, rosa, hellgelb).                       | Dynamisch                    |  speed |
+| 9            | Wake up          | Allmähliches Aufhellen, oft genutzt für Morgenroutinen.                          | Dynamisch                    |  speed  |
+| 10           | Bedtime          | Allmähliches Abdunkeln zu wärmeren Farbtönen, für die Nacht.                     | Dynamisch                    |  speed  |
+| 11           | Warm White       | Standard-Warmweiß (ca. 2700K–3000K).                                              | Statisch                     |         |
+| 12           | Daylight         | Neutral- bis kaltweißes Licht (ca. 5000K–5500K).                                  | Statisch                     |         |
+| 13           | Cool white       | Kälteres Weiß (ca. 6000K–6500K).                                                 | Statisch                     |          |
+| 14           | Night light      | Sehr gedimmtes, warmes Licht.                                                    | Statisch                     |          |
+| 15           | Focus            | Meist ein kühleres Weiß (um 6500K) und hell.                                      | Statisch                     |         |
+| 16           | Relax            | Meist ein warm- bis neutralweißes Licht.                                         | Statisch                     |          |
+| 17           | True colors      | Betont eine natürliche Farbwiedergabe, oft ca. 4000K.                             | Statisch                     |         |
+| 18           | TV time          | Sanftes, warmes Weiß, teils leichte Farbwechsel.                                 | Überwiegend statisch         |          |
+| 19           | Plant growth     | Violett-/Rosa-Töne für Pflanzenbeleuchtung.                                      | Überwiegend statisch         |          |
+| 20           | Spring           | Zarte grünliche Pastell-Verläufe.                                                | Dynamisch                    |  speed  |
+| 21           | Summer           | Hellere, warme Farbübergänge, die an Sonnenschein erinnern.                      | Dynamisch                    |  speed  |
+| 22           | Fall             | Kräftige Rot-/Orangetöne, die an Herbstlaub erinnern.                            | Dynamisch                    |  speed  |
+| 23           | Deep dive        | Tiefe Blau- und Violetttöne.                                                     | Dynamisch                    |  speed  |
+| 24           | Jungle           | Grüne, ggf. dezente Übergänge.                                                   | Dynamisch                    |  speed  |
+| 25           | Mojito           | Grüne und gelbe Farbwechsel.                                                     | Dynamisch                    |  speed  |
+| 26           | Club             | Schnelle Farbwechsel in hellen und kräftigen Tönen.                              | Dynamisch                    |  speed  |
+| 27           | Christmas        | Rot-Grün-Wechsel.                                                                | Dynamisch                    |  speed  |
+| 28           | Halloween        | Orange-Lila-Wechsel.                                                             | Dynamisch                    |  speed  |
+| 29           | Candlelight      | Sehr warmes Flackern.                                                            | Dynamisch                    |  speed  |
+| 30           | Golden white     | Etwas wärmeres Weiß als „Warm White“.                                            | Statisch                     |          |
+| 31           | Pulse            | Pulsierende, kräftige Farbzyklen.                                                | Dynamisch                    |  speed  |
+| 32           | Steampunk        | Warme Bernstein-Übergänge mit leichtem „mechanischen“ Flacker-Effekt.           | Dynamisch                    |  speed   |
+
+Einige Beispiele:
+Wärmstes Licht: {'scene': 0, 'colortemp': 2200, 'brightness': 255}
+Tageslicht: {'scene': 12, 'colortemp': 4200, 'brightness': 255}
+Nachtlicht: {'scene': 14}
+Gemütlich: {'scene': 6, 'brightness': 255}
+Entspannung: {'scene': 16, 'brightness': 255}
+Color light with given rgb: {'rgbww': [255, 0, 0, 0, 0], 'scene': 0, 'brightness': 255}
+Animated Fireplace light: {'scene': 5, 'speed': 100, 'brightness': 255}
+
+Beachte das rgbww ein Tupel mit 5 elementen ist.
+Beachte die wichtigste Regel strikt: Antworte mit EINER EINZELNEN JSON Ausgabe die den Endzustand beschreibt, und beende danach. Keine weiteren Erklärungen, Haftungsausschlüsse oder zusätzlicher Text.
+""",
         user_say_str=''
     ),
     Mode.GARBAGEINPUT.name: PromptTemplate(
