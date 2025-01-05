@@ -85,6 +85,10 @@ def application():
             # if input is usable go forward to step human_input
             ("check_if_input_is_garbage", "human_input",
              expr(f'input_ok')),
+            # from choose mode go forward to human_input to ask the LLM
+            ("choose_mode", "human_input", expr(f'input_ok')),
+            # in case not input_ok directly go back to recording
+            ("choose_mode", "get_user_speak_input", expr(f'not input_ok')),
             # the human input is given to the LLM to get a response
             ("human_input", "ai_response"),
             # if we cycled ten times to get speak input without success exit the mode
@@ -96,11 +100,8 @@ def application():
             # NORMAL LLM USER CHAT
             #
             # when mode==CHAT then process and send input to LLM for talking
-            ("choose_mode", "human_input",
-             expr(f'mode == "{Mode.CHAT.name}" and input_ok')),
             # ask for input if we got no useful input
-            ("choose_mode", "get_user_speak_input",
-             expr(f'mode == "{Mode.LEDCONTROL.name}" and not input_ok')),
+
             # when we get AI response directly go back to the user for input
             ("ai_response", "get_user_speak_input",
              expr(f'mode == "{Mode.CHAT.name}"')),
@@ -108,11 +109,6 @@ def application():
             # CONTROL LED/LIGHTS
             #
             # when mode==LEDCONTROL then process and send input to LLM for talking
-            ("choose_mode", "human_input",
-             expr(f'mode == "{Mode.LEDCONTROL.name}" and input_ok')),
-            # get back to direct record
-            ("choose_mode", "get_user_speak_input",
-             expr(f'mode == "{Mode.LEDCONTROL.name}" and not input_ok')),
             # try to get a LED command from user prompt
             ("ai_response", "mode_led_human_input",
              expr(f'mode == "{Mode.LEDCONTROL.name}"')),
