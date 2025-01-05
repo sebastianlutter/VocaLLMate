@@ -50,7 +50,6 @@ def application():
             ai_response=ai_response.bind(stop_signal=stop_signal),
             choose_mode=choose_mode,
             exit_mode=exit_mode,
-            exit_mode_chat=exit_mode,
             entry_point=entry_point,
             mode_led_human_input=mode_led_human_input
         )
@@ -68,7 +67,7 @@ def application():
             ("mode_select_we_did_not_understand", "get_mode_speak_input",
              expr(f'input_loop_counter < 10')),
 #            # when we have more than 10 cycles to back to wake word (and thus to entrypoint)
-            ("mode_select_we_did_not_understand", "exit_mode_chat",
+            ("mode_select_we_did_not_understand", "exit_mode",
              expr(f'input_loop_counter >= 10')),
             # when we got input go to choose_mode again
             ("get_mode_speak_input", "choose_mode"),
