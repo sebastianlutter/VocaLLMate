@@ -85,6 +85,9 @@ def application():
             # if input is usable go forward to step human_input
             ("check_if_input_is_garbage", "human_input",
              expr(f'input_ok')),
+            # When the mode selection leads to EXIT
+            ("choose_mode", "exit_mode",
+             expr(f'mode == "{Mode.EXIT.name}"')),
             # from choose mode go forward to human_input to ask the LLM
             ("choose_mode", "human_input", expr(f'input_ok')),
             # in case not input_ok directly go back to recording

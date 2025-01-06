@@ -75,7 +75,7 @@ def clean_str_from_markdown(text: str):
     buffer = re.sub(r'\.\d+\.', '.', buffer)
     return buffer
 
-def is_sane_input_german(input_str: str, threshold: float = 0.3) -> bool:
+def is_sane_input_german(input_str: str, threshold: float = 0.15) -> bool:
     """
     Determines if the input string is sane (contains a sufficient proportion of valid German words).
 

@@ -1,6 +1,6 @@
 import asyncio
 import json
-
+import traceback
 from pywizlight import wizlight, PilotBuilder, discovery
 
 
@@ -23,7 +23,6 @@ async def wiz_get_state():
         'brightness': state.get_brightness(),
     }
     #print(f"{bulbtype_dict['name']}: {status}")
-    await b.async_close()
     return status
 
 async def wiz_set_state(parsed_cmd):
@@ -33,6 +32,8 @@ async def wiz_set_state(parsed_cmd):
         action = parsed_cmd.pop("action")
     else:
         action = 'on'
+    if 'scene' in parsed_cmd and int(parsed_cmd['scene']) == 0:
+        parsed_cmd['scene'] = None
     parsed_cmd['state'] = True if action == 'on' else False
     settings = PilotBuilder(**parsed_cmd)
     await b.turn_on(settings)
@@ -40,7 +41,8 @@ async def wiz_set_state(parsed_cmd):
 
 async def main():
     print(await wiz_get_state())
-    cmd = '{"action": "on", "rgbww": [0, 0, 255, 0, 0]}'
+    cmd = '{"action": "on", "rgbww": [0, 0, 255, 0, 0], "scene": 0}'
+    #cmd = '{"action": "on", "rgbww": [255, 0, 255, 200, 100], "scene": 0, "speed": null, "colortemp": null, "brightness": 255}'
     cmd_parsed = json.loads(cmd)
     await wiz_set_state(cmd_parsed)
     # Once we exit the `with` block, all bulbs get closed in __aexit__()

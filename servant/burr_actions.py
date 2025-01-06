@@ -95,8 +95,9 @@ def we_did_not_understand(state: State) -> Tuple[dict, State]:
 
 @action(reads=["mode"], writes=["mode", "chat_history", "input_loop_counter", "prompt", "command"])
 def exit_mode(state: State) -> Tuple[dict, State]:
-    title("exit_mode")
+
     mode = state["mode"]
+    title("exit_mode: "+mode)
     if mode == Mode.CHAT:
         # say something to the user
         factory.human_speech_agent.say(f"Ich habe den Live Chat Modus beendet und unseren Chat geleert.")
@@ -172,8 +173,6 @@ async def get_user_speak_input(state: State, stop_signal: Event, wait_for_wakewo
         raise e
     except BaseException as e:
         logger.error("got error", exc_info=True)
-    # stop the SpeechInterruptThread here
-    stop_signal.set()
     # when all is done update state
     yield {"transcription_input": full_text}, state.update(transcription_input=full_text)
 
@@ -266,6 +265,8 @@ async def ai_response(state: State, stop_signal: threading.Event) -> AsyncGenera
     # wait until TTS and soundcard finished playback
     factory.tts_provider.wait_until_done()
     factory.tts_provider.soundcard.wait_until_playback_finished()
+    # exit the speech-interruption thread, response is finished
+    stop_signal.set()
     yield ({"response": response, "sentences": sentences_list, "input_loop_counter": 0},
            state.update(response=response)
                .update(sentences=sentences_list)
