@@ -71,7 +71,7 @@ Du steuerst LED-Lichter per JSON requests.
 Der User möchte sie möglicherweise ein- oder ausschalten oder die Farbe oder Helligkeit ändern. 
 
 Parameter und mögliche Werte:
-- action: on, off. Immer on ausser das Licht soll explicit ausgeschalten werden
+- action: on, off. Immer on wählen, ausser das Licht soll explizit ausgeschalten werden oder der Nutzer verlangt Dunkelheit.
 - rgbww: Array mit fünf Elementen: Rot, Grün, Blau, kaltes Weiß, warmes Weiß (jeweils von 0 bis 255).
 - colortemp: Farbtemperatur setzen (2200K bis 6500K).
 - brightness: Helligkeit anpassen (Wertebereich 10–255).

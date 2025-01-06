@@ -147,17 +147,23 @@ class HumanSpeechAgent:
         self.tts_provider.speak(message)
 
     def block_until_talking_finished(self):
-        self.tts_provider.wait_until_done()
+        self.logger.info("block_until_talking_finished: blocking")
+        c = 0
+        while c < 3:
+            time.sleep(0.33)
+            c+=1
+            self.tts_provider.wait_until_done()
+            self.tts_provider.soundcard.wait_until_playback_finished()
+        self.logger.info("block_until_talking_finished: unblocking")
 
-    async def get_human_input(self, ext_stop_signal: threading.Event, wait_for_wakeword: bool = True) -> AsyncGenerator[str, None]:
+    async def get_human_input(self, wait_for_wakeword: bool = True) -> AsyncGenerator[str, None]:
         #self.soundcard.wait_until_playback_finished()
         if wait_for_wakeword:
-            await self.voice_activator.listen_for_wake_word()
+            await self.voice_activator.listen_for_wake_word(stop_signal=None)
             self.beep_positive()
 
         def on_close_ws_callback():
-            #self.logger.info("get_human_input.on_close_ws_callback: set stop")
-            ext_stop_signal.set()
+            self.logger.info("get_human_input.on_close_ws_callback: websocket closed")
 
         def on_ws_open():
             #self.logger.info("on_ws_open: Should say_hi now ws is opened:")
@@ -173,14 +179,7 @@ class HumanSpeechAgent:
 
     async def start_recording(self) -> AsyncGenerator[bytes, None]:
         self.logger.info("start_recording: Recording...")
-        silence_counter = 0
-        record_start_time = time.time()
-
         async for wav_chunk in self.soundcard.get_record_stream():
-            if self.stop_signal.is_set():
-                self.logger.info("start_recording: Stop signal is set. Abort reading record stream")
-                self.soundcard.stop_recording()
-                break
             yield wav_chunk
 
     def _warmup_cache(self):
@@ -225,3 +224,17 @@ class HumanSpeechAgent:
                                                              va_provider=self.voice_activator,
                                                              on_stop_callback=stop_speech)
         self.interrupt_speech_thread.start()
+
+    def stop_speech_interrupt_thread(self):
+        self.logger.info("Stopping speech interrupt thread")
+        # Ensure the interrupt thread exists before trying to stop it
+        if self.interrupt_speech_thread is not None:
+            # Set the stop event so the thread knows it should shut down
+            self.logger.debug("Signaling the speech interrupt thread to stop...")
+            # Wait for the thread to finish
+            self.interrupt_speech_thread.stop()
+            # Clean up
+            self.interrupt_speech_thread = None
+            self.logger.info("Speech interrupt thread stopped.")
+        else:
+            self.logger.info("No speech interrupt thread is currently running.")

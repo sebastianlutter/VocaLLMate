@@ -54,7 +54,7 @@ async def mode_led_human_input(state: State) -> AsyncGenerator[Tuple[dict, Optio
         factory.human_speech_agent.say("Ich habe noch zu wenig informationen, was soll ich mit dem Licht machen?")
     else:
         await wiz_set_state(parsed_command)
-        msg = f"Ich habe die Beleuchtung angepasst"
+        msg = f"Beleuchtung wurde angepasst"
         #for p in  parsed_command.keys():
         #    msg += f"{p} zu {parsed_command[p]}\n"
         factory.human_speech_agent.say(msg)
@@ -95,7 +95,6 @@ def we_did_not_understand(state: State) -> Tuple[dict, State]:
 
 @action(reads=["mode"], writes=["mode", "chat_history", "input_loop_counter", "prompt", "command"])
 def exit_mode(state: State) -> Tuple[dict, State]:
-
     mode = state["mode"]
     title("exit_mode: "+mode)
     if mode == Mode.CHAT:
@@ -152,19 +151,17 @@ async def choose_mode(state: State) -> AsyncGenerator[Tuple[dict, Optional[State
                state.update(input_loop_counter=0).update(input_loop_counter=0).update(input_ok=False).update(chat_history=prompt_manager.get_history()))
 
 @streaming_action(reads=[], writes=["transcription_input"])
-async def get_user_speak_input(state: State, stop_signal: Event, wait_for_wakeword: bool = True) -> AsyncGenerator[Tuple[dict, Optional[State]], None]:
+async def get_user_speak_input(state: State, wait_for_wakeword: bool = True) -> AsyncGenerator[Tuple[dict, Optional[State]], None]:
     """
     This action blocks until it detects the wakeword from the microphone stream. It then
     passes data as wav byte stream to voice_buffer so it can be streamed to transcription
     """
     title("get_user_speak_input: recording and transcribe")
-    stop_signal.clear()
     full_text = ''
     try:
         factory.tts_provider.wait_until_done()
         # wait for wakeword, then stream the wave to the STT provider and steam back the transcription
         async for text in factory.human_speech_agent.get_human_input(
-                ext_stop_signal=stop_signal,
                 wait_for_wakeword=wait_for_wakeword
             ):
             full_text += text
@@ -201,7 +198,6 @@ async def human_input(state: State) -> Tuple[dict, State]:
 
 @streaming_action(reads=["chat_history", "mode"], writes=["response", "sentences" , "chat_history", "input_loop_counter"])
 async def ai_response(state: State, stop_signal: threading.Event) -> AsyncGenerator[Tuple[dict, Optional[State]], None]:
-    stop_signal.clear()
     factory.human_speech_agent.processing_sound()
     # give the history including the last user input to the LLM to get its response
     history = state[StateKeys.chat_history.name]
@@ -214,6 +210,8 @@ async def ai_response(state: State, stop_signal: threading.Event) -> AsyncGenera
     sentences_list = []
     buffer = ''
     first_sentence_ready=False
+    # reset the given stop_signal
+    stop_signal.clear()
     factory.human_speech_agent.start_speech_interrupt_thread(ext_stop_signal=stop_signal)
     async for chunk in response_stream:
         response += chunk
@@ -263,10 +261,9 @@ async def ai_response(state: State, stop_signal: threading.Event) -> AsyncGenera
     chat_entry = factory.llm_provider.get_prompt_manager().add_assistant_entry(response)
     logger.debug(factory.llm_provider.get_prompt_manager().pretty_print_history())
     # wait until TTS and soundcard finished playback
-    factory.tts_provider.wait_until_done()
-    factory.tts_provider.soundcard.wait_until_playback_finished()
-    # exit the speech-interruption thread, response is finished
-    stop_signal.set()
+    factory.human_speech_agent.block_until_talking_finished()
+    # exit the speech-interruption thread, wait until it has shutdown
+    factory.human_speech_agent.stop_speech_interrupt_thread()
     yield ({"response": response, "sentences": sentences_list, "input_loop_counter": 0},
            state.update(response=response)
                .update(sentences=sentences_list)

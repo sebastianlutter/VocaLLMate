@@ -3,6 +3,8 @@ import os
 import logging
 import pvporcupine
 import numpy as np
+import threading
+from typing import Optional
 from servant.voice_activated_recording.va_interface import VoiceActivationInterface
 
 class PorcupineWakeWord(VoiceActivationInterface):
@@ -23,7 +25,7 @@ class PorcupineWakeWord(VoiceActivationInterface):
             access_key=os.getenv('PICOVOICE_ACCESS_KEY')
         )
 
-    async def listen_for_wake_word(self):
+    async def listen_for_wake_word(self, stop_signal: Optional[threading.Event] = None):
         try:
             self.logger.info(f"Listening for wake word: {self.wakeword}")
             buffer = []
@@ -31,6 +33,8 @@ class PorcupineWakeWord(VoiceActivationInterface):
                 # Convert raw PCM data to the format expected by Porcupine
                 pcm = np.frombuffer(chunk, dtype=np.int16)
                 buffer.extend(pcm)
+                if stop_signal is not None:
+                    stop_signal.set()
                 # Process in frames of the expected length
                 while len(buffer) >= self.porcupine.frame_length:
                     frame = np.array(buffer[:self.porcupine.frame_length], dtype=np.int16)

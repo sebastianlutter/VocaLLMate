@@ -32,15 +32,12 @@ def application():
         ApplicationBuilder()
         .with_actions(
             wait_for_user_speak_input=get_user_speak_input.bind(
-                stop_signal=stop_signal,
                 wait_for_wakeword=True
             ),
             get_user_speak_input=get_user_speak_input.bind(
-                stop_signal=stop_signal,
                 wait_for_wakeword=False
             ),
             get_mode_speak_input=get_user_speak_input.bind(
-                stop_signal=stop_signal,
                 wait_for_wakeword=False
             ),
             check_if_input_is_garbage=check_if_input_is_garbage,

@@ -1,5 +1,7 @@
 import os
+import threading
 from abc import ABC, abstractmethod
+from typing import Optional
 
 from servant.audio_device.soundcard_factory import SoundcardFactory
 
@@ -15,7 +17,7 @@ class VoiceActivationInterface(ABC):
         self.soundcard = SoundcardFactory()
 
     @abstractmethod
-    async def listen_for_wake_word(self):
+    async def listen_for_wake_word(self, stop_signal: Optional[threading.Event] = None):
         """
         This function should block until the wakeword has been detected
         """
