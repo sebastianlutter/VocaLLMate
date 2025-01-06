@@ -68,7 +68,7 @@ async def entry_point(state: State) -> AsyncGenerator[Tuple[dict, Optional[State
     Init all state variables with StateKeys enum
     """
     title("entry_point: greeting the user")
-    factory.human_speech_agent.say_init_greeting()
+    #factory.human_speech_agent.say_init_greeting()
     yield ({ m.name: m.value for m in StateKeys }, state.update(
         chat_history=StateKeys.chat_history.value,
         transcription_input=StateKeys.transcription_input.value,
@@ -81,11 +81,12 @@ async def entry_point(state: State) -> AsyncGenerator[Tuple[dict, Optional[State
         command=""
     ))
 
-@action(reads=["input_loop_counter", "prompt"], writes=["input_loop_counter"])
-def we_did_not_understand(state: State) -> Tuple[dict, State]:
+@action(reads=["input_loop_counter", "prompt", "mode"], writes=["input_loop_counter"])
+async def we_did_not_understand(state: State) -> Tuple[dict, State]:
     #TODO: implement that we use some state string we say to the user if filled
     counter = state.get("input_loop_counter")
-    title(f"we_did_not_understand: input_loop_counter={counter}")
+    mode = state[StateKeys.mode.name]
+    title(f"we_did_not_understand: input_loop_counter={counter} mode={mode}")
     if counter is None:
         counter=1
     else:
@@ -94,14 +95,14 @@ def we_did_not_understand(state: State) -> Tuple[dict, State]:
     return {"input_loop_counter": counter}, state.update(input_loop_counter=counter)
 
 @action(reads=["mode"], writes=["mode", "chat_history", "input_loop_counter", "prompt", "command"])
-def exit_mode(state: State) -> Tuple[dict, State]:
+async def exit_mode(state: State) -> Tuple[dict, State]:
     mode = state["mode"]
     title("exit_mode: "+mode)
     if mode == Mode.CHAT:
         # say something to the user
         factory.human_speech_agent.say(f"Ich habe den Live Chat Modus beendet und unseren Chat geleert.")
         factory.human_speech_agent.say(f"Um mich wieder zu aktivieren sage das Wort {factory.va_provider.wakeword}.")
-        factory.tts_provider.wait_until_done()
+        factory.human_speech_agent.wait_until_talking_finished()
     prompt_manager = factory.llm_provider.get_prompt_manager()
     # clear history of the current mode chat
     prompt_manager.empty_history()
@@ -133,7 +134,7 @@ async def choose_mode(state: State) -> AsyncGenerator[Tuple[dict, Optional[State
         if m.name != state[StateKeys.mode.name]:
             # if it has changed then empty the history
             prompt_manager.empty_history()
-        if m.name == Mode.GARBAGEINPUT:
+        if m.name == Mode.GARBAGEINPUT.name:
             # do not change the mode itself if input is not ok
             title(f"choose_mode: got GARBAGE_INPUT: {full_res} instead of a useful mode")
             yield {"input_ok": False}, state.update(input_ok=False)
@@ -150,13 +151,14 @@ async def choose_mode(state: State) -> AsyncGenerator[Tuple[dict, Optional[State
         yield ({"input_ok": False, "input_loop_counter": 0},
                state.update(input_loop_counter=0).update(input_loop_counter=0).update(input_ok=False).update(chat_history=prompt_manager.get_history()))
 
-@streaming_action(reads=[], writes=["transcription_input"])
+@streaming_action(reads=["mode"], writes=["transcription_input"])
 async def get_user_speak_input(state: State, wait_for_wakeword: bool = True) -> AsyncGenerator[Tuple[dict, Optional[State]], None]:
     """
     This action blocks until it detects the wakeword from the microphone stream. It then
     passes data as wav byte stream to voice_buffer so it can be streamed to transcription
     """
-    title("get_user_speak_input: recording and transcribe")
+    mode = state[StateKeys.mode.name]
+    title(f"get_user_speak_input: recording and transcribe. wake word={wait_for_wakeword} mode={mode}")
     full_text = ''
     try:
         factory.tts_provider.wait_until_done()
@@ -187,11 +189,10 @@ async def human_input(state: State) -> Tuple[dict, State]:
     mode = state.get(StateKeys.mode.name)
     if mode == Mode.LEDCONTROL.name:
         state_dict = await wiz_get_state()
-        print(f"STATE DICT: {state_dict}")
         current_led_state = json.dumps(state_dict)
-        prompt = f"Aktueller LED status: {current_led_state}\n\n{prompt}"
+        prompt = f"Aktueller Licht status: {current_led_state}\n\n{prompt}"
     factory.llm_provider.get_prompt_manager().add_user_entry(prompt)
-    title(f"human_input: {prompt}")
+    title(f"human_input({mode}): {prompt}")
     # overwrite the current history with the prompt manager one
     return ({"prompt": prompt},
             state.update(prompt=prompt).update(chat_history=factory.llm_provider.get_prompt_manager().get_history()))
@@ -203,6 +204,7 @@ async def ai_response(state: State, stop_signal: threading.Event) -> AsyncGenera
     history = state[StateKeys.chat_history.name]
     mode = state[StateKeys.mode.name]
     response_stream = factory.llm_provider.chat(history)
+    title(f"ai_response: Start generation")
     print("KI: ", end='', flush=True)
     modes_with_speech_output = [Mode.CHAT.name]
     # consume the stream and collect response while printing to console
@@ -212,7 +214,7 @@ async def ai_response(state: State, stop_signal: threading.Event) -> AsyncGenera
     first_sentence_ready=False
     # reset the given stop_signal
     stop_signal.clear()
-    factory.human_speech_agent.start_speech_interrupt_thread(ext_stop_signal=stop_signal)
+#    factory.human_speech_agent.start_speech_interrupt_thread(ext_stop_signal=stop_signal)
     async for chunk in response_stream:
         response += chunk
         # stop if the signal from speech interruption thread arrives
@@ -226,7 +228,6 @@ async def ai_response(state: State, stop_signal: threading.Event) -> AsyncGenera
             buffer = clean_str_from_markdown(f"{buffer}{chunk}")
             # Tokenize to sentences
             sentences = sent_tokenize(text=buffer, language="german")
-            #print(f"buffer (arr={len(sentences)}): {buffer} ")
             for sentence in sentences[:-1]:
                 # clean the sentence from markdown and skip if broken
                 sentence =  re.sub(r'[*_#`"\']+', '', sentence).strip()
@@ -253,19 +254,23 @@ async def ai_response(state: State, stop_signal: threading.Event) -> AsyncGenera
             sentences_list.append(buffer)
             factory.human_speech_agent.say(buffer)
             yield {"sentences": buffer}, None
-        print("SENTENCE LIST:")
         for s in sentences_list:
             print(f" - {s}")
     # Update state after stream is finished
     title(f"ai_response finished: response={response}")
     chat_entry = factory.llm_provider.get_prompt_manager().add_assistant_entry(response)
     logger.debug(factory.llm_provider.get_prompt_manager().pretty_print_history())
-    # wait until TTS and soundcard finished playback
-    factory.human_speech_agent.block_until_talking_finished()
-    # exit the speech-interruption thread, wait until it has shutdown
-    factory.human_speech_agent.stop_speech_interrupt_thread()
     yield ({"response": response, "sentences": sentences_list, "input_loop_counter": 0},
            state.update(response=response)
                .update(sentences=sentences_list)
                .update(input_loop_counter=0)
                .append(chat_history=chat_entry))
+
+@action(reads=[], writes=[])
+async def ai_response_finished(state: State) ->  Tuple[dict, State]:
+    title("ai_response_finished: Stop Speech Interrupt Thread")
+    # wait until TTS and soundcard finished playback
+    factory.human_speech_agent.wait_until_talking_finished()
+    # exit the speech-interruption thread, wait until it has shutdown
+    factory.human_speech_agent.stop_speech_interrupt_thread()
+    return {}, state

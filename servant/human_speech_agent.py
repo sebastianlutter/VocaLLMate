@@ -107,6 +107,7 @@ class HumanSpeechAgent:
         sample_rate, audio_buffer = self._load_mp3_to_wav_bytesio(mp3_path)
         self.soundcard.play_audio(sample_rate, audio_buffer)
         self.tts_provider.speak(f"Ich höre auf den Namen {self.voice_activator.wakeword}")
+        self.tts_provider.wait_until_done()
         self.soundcard.wait_until_playback_finished()
 
     def say_hi(self):
@@ -146,28 +147,26 @@ class HumanSpeechAgent:
         self.tts_provider.clear_stop_signal()
         self.tts_provider.speak(message)
 
-    def block_until_talking_finished(self):
+    def wait_until_talking_finished(self):
         self.logger.info("block_until_talking_finished: blocking")
         c = 0
-        while c < 3:
-            time.sleep(0.33)
+        while c < 2:
             c+=1
             self.tts_provider.wait_until_done()
             self.tts_provider.soundcard.wait_until_playback_finished()
         self.logger.info("block_until_talking_finished: unblocking")
 
     async def get_human_input(self, wait_for_wakeword: bool = True) -> AsyncGenerator[str, None]:
-        #self.soundcard.wait_until_playback_finished()
         if wait_for_wakeword:
+            self.soundcard.wait_until_playback_finished()
             await self.voice_activator.listen_for_wake_word(stop_signal=None)
             self.beep_positive()
 
         def on_close_ws_callback():
-            self.logger.info("get_human_input.on_close_ws_callback: websocket closed")
+            self.logger.debug("get_human_input.on_close_ws_callback: websocket closed")
 
         def on_ws_open():
-            #self.logger.info("on_ws_open: Should say_hi now ws is opened:")
-            pass
+            self.logger.debug("on_ws_open: Should say_hi now ws is opened:")
 
         async for text in self.stt_provider.transcribe_stream(
             audio_stream=self.start_recording(),

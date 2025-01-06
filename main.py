@@ -11,12 +11,14 @@ from burr.core import ApplicationBuilder, when, expr
 from typing import Tuple, Optional, AsyncGenerator
 from servant.utils import title
 from servant.burr_actions import get_user_speak_input, we_did_not_understand, human_input, \
-    check_if_input_is_garbage, StateKeys, choose_mode, exit_mode, ai_response, entry_point, mode_led_human_input
+    check_if_input_is_garbage, StateKeys, choose_mode, exit_mode, ai_response, entry_point, mode_led_human_input, \
+    ai_response_finished
 
 nltk.download('punkt_tab', quiet=True)
 # Load German words from the Swadesh corpus
 GERMAN_WORDS = set(word.lower() for word in swadesh.words('de'))
 
+num_user_speak_input_retry = 3
 
 @streaming_action(reads=[], writes=[m.name for m in StateKeys])
 async def error_exit_node(state: State) -> AsyncGenerator[Tuple[dict, Optional[State]], None]:
@@ -45,6 +47,7 @@ def application():
             mode_select_we_did_not_understand=we_did_not_understand,
             human_input=human_input,
             ai_response=ai_response.bind(stop_signal=stop_signal),
+            ai_response_finished=ai_response_finished,
             choose_mode=choose_mode,
             exit_mode=exit_mode,
             entry_point=entry_point,
@@ -62,10 +65,10 @@ def application():
              expr(f'mode == "{Mode.GARBAGEINPUT.name}" or not input_ok')),
             # count up to ten in the cycle before you exit
             ("mode_select_we_did_not_understand", "get_mode_speak_input",
-             expr(f'input_loop_counter < 10')),
+             expr(f'input_loop_counter < {num_user_speak_input_retry}')),
 #            # when we have more than 10 cycles to back to wake word (and thus to entrypoint)
             ("mode_select_we_did_not_understand", "exit_mode",
-             expr(f'input_loop_counter >= 10')),
+             expr(f'input_loop_counter >= {num_user_speak_input_retry}')),
             # when we got input go to choose_mode again
             ("get_mode_speak_input", "choose_mode"),
             #
@@ -75,7 +78,7 @@ def application():
             ("get_user_speak_input", "check_if_input_is_garbage"),
             # directly go back to record again. Cycle until we have something
             ("we_did_not_understand", "get_user_speak_input",
-             expr(f'input_loop_counter < 10')),
+             expr(f'input_loop_counter < {num_user_speak_input_retry}')),
             # check if input is sane
             ("check_if_input_is_garbage", "we_did_not_understand",
              expr(f'not input_ok')),
@@ -91,9 +94,11 @@ def application():
             ("choose_mode", "get_user_speak_input", expr(f'not input_ok')),
             # the human input is given to the LLM to get a response
             ("human_input", "ai_response"),
+            # to end the speech interruption thread we use the "ai_response_finished" action
+            ("ai_response", "ai_response_finished"),
             # if we cycled ten times to get speak input without success exit the mode
             ("we_did_not_understand", "exit_mode",
-             expr(f'input_loop_counter >= 10')),
+             expr(f'input_loop_counter >= {num_user_speak_input_retry}')),
             # and whenever we get to this node we start again from beginning
             ("exit_mode", "wait_for_user_speak_input"),
             #
@@ -103,14 +108,14 @@ def application():
             # ask for input if we got no useful input
 
             # when we get AI response directly go back to the user for input
-            ("ai_response", "get_user_speak_input",
+            ("ai_response_finished", "get_user_speak_input",
              expr(f'mode == "{Mode.CHAT.name}"')),
             #
             # CONTROL LED/LIGHTS
             #
             # when mode==LEDCONTROL then process and send input to LLM for talking
             # try to get a LED command from user prompt
-            ("ai_response", "mode_led_human_input",
+            ("ai_response_finished", "mode_led_human_input",
              expr(f'mode == "{Mode.LEDCONTROL.name}"')),
             # when the command was understood, and the LED has been altered exit this mode
             ("mode_led_human_input", "exit_mode",
@@ -122,7 +127,7 @@ def application():
             # A catch all target if modus is not supported yet
             #
             ("choose_mode", "exit_mode",
-             expr(f'not (mode in ["{Mode.MODUS_SELECTION.name}", "{Mode.CHAT.name}", ""])')),
+             expr(f'not (mode in ["{Mode.MODUS_SELECTION.name}", "{Mode.CHAT.name}", "{Mode.LEDCONTROL}"])')),
         )
         # init the chat history with the system prompt
 #        .with_state(chat_history=[], exit_chat=False, input_loop_counter=0)
