@@ -158,6 +158,7 @@ class HumanSpeechAgent:
 
     async def get_human_input(self, wait_for_wakeword: bool = True) -> AsyncGenerator[str, None]:
         if wait_for_wakeword:
+            self.soundcard.stop_recording()
             self.soundcard.wait_until_playback_finished()
             await self.voice_activator.listen_for_wake_word(stop_signal=None)
             self.beep_positive()

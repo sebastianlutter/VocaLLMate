@@ -72,7 +72,8 @@ async def entry_point(state: State) -> AsyncGenerator[Tuple[dict, Optional[State
     Init all state variables with StateKeys enum
     """
     title("entry_point: greeting the user")
-    #factory.human_speech_agent.say_init_greeting()
+    factory.human_speech_agent.say_init_greeting()
+    factory.human_speech_agent.wait_until_talking_finished()
     yield ({ m.name: m.value for m in StateKeys }, state.update(
         chat_history=StateKeys.chat_history.value,
         transcription_input=StateKeys.transcription_input.value,
@@ -118,7 +119,7 @@ async def choose_mode(state: State) -> AsyncGenerator[Tuple[dict, Optional[State
     # first of all collect the results from the stream (breaking stream here)
     full_text = state["transcription_input"]
     # make easy check if input is a valid sentence at all
-    if not is_sane_input_german(full_text):
+    if not is_sane_input_german(full_text) or len(full_text.strip())<3:
         # if we got no useful string then directly return
         yield {"input_ok": False}, state.update(input_ok=False)
     # We have some text input, now decide what mode we need using the LLM

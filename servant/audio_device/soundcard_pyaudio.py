@@ -230,9 +230,6 @@ class SoundCard(AudioInterface):
         # Wait for the stream to actually finish
         while not self.record_queue.empty():
             self.record_queue.get()
-        #if self.record_stream.is_active():
-        #    self.record_stream.stop_stream()
-        #self.record_stream.close()
         self.logger.debug("Recording stopped and stream closed.")
 
     ###########################################################################
