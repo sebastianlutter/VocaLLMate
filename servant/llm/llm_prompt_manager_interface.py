@@ -71,10 +71,10 @@ Du steuerst LED-Lichter per JSON requests.
 Der User möchte sie möglicherweise ein- oder ausschalten oder die Farbe oder Helligkeit ändern. 
 
 Parameter und mögliche Werte:
-- action: on, off. Immer on wählen, ausser das Licht soll explizit ausgeschalten werden oder der Nutzer verlangt Dunkelheit.
+- action: on, off. Nur off wenn User dunkelheit will oder das Licht ausgeschalten werden soll und kein Licht mehr an sein soll
 - rgbww: Array mit fünf Elementen: Rot, Grün, Blau, kaltes Weiß, warmes Weiß (jeweils von 0 bis 255).
 - colortemp: Farbtemperatur setzen (2200K bis 6500K).
-- brightness: Helligkeit anpassen (Wertebereich 10–255).
+- brightness: Helligkeit anpassen, dünkler oder heller (Wertebereich 10–255).
 - scene von 1 bis 32 ruft vordefinierte (oft dynamische) Szenen auf.  
 - scene 0 wird für benutzerdefinierte Farben oder Farbtemperaturen genutzt.  
 - speed (0–100) ist nur für dynamische Szenen relevant und bestimmt die Geschwindigkeit der Farbübergänge.    

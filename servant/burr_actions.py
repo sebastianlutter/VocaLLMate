@@ -53,12 +53,16 @@ async def mode_led_human_input(state: State) -> AsyncGenerator[Tuple[dict, Optio
     if not input_ok:
         factory.human_speech_agent.say("Ich habe noch zu wenig informationen, was soll ich mit dem Licht machen?")
     else:
-        await wiz_set_state(parsed_command)
-        msg = f"Beleuchtung wurde angepasst"
-        #for p in  parsed_command.keys():
-        #    msg += f"{p} zu {parsed_command[p]}\n"
-        factory.human_speech_agent.say(msg)
-        title(f"mode_led_human_input: {msg}")
+        try:
+            await wiz_set_state(parsed_command)
+            msg = f"Beleuchtung wurde angepasst"
+            #for p in  parsed_command.keys():
+            #    msg += f"{p} zu {parsed_command[p]}\n"
+            factory.human_speech_agent.say(msg)
+            title(f"mode_led_human_input: {msg}")
+        except:
+            factory.human_speech_agent.beep_error()
+            factory.human_speech_agent.say("Ein Fehler ist aufgetreten als ich das Licht verändern wollte.")
     yield ({'command': json.dumps(parsed_command), 'input_ok': input_ok},
             state.update(command=json_cmd).update(input_ok=input_ok))
 
@@ -214,7 +218,8 @@ async def ai_response(state: State, stop_signal: threading.Event) -> AsyncGenera
     first_sentence_ready=False
     # reset the given stop_signal
     stop_signal.clear()
-#    factory.human_speech_agent.start_speech_interrupt_thread(ext_stop_signal=stop_signal)
+    if mode == Mode.CHAT.name:
+        factory.human_speech_agent.start_speech_interrupt_thread(ext_stop_signal=stop_signal)
     async for chunk in response_stream:
         response += chunk
         # stop if the signal from speech interruption thread arrives
@@ -260,17 +265,20 @@ async def ai_response(state: State, stop_signal: threading.Event) -> AsyncGenera
     title(f"ai_response finished: response={response}")
     chat_entry = factory.llm_provider.get_prompt_manager().add_assistant_entry(response)
     logger.debug(factory.llm_provider.get_prompt_manager().pretty_print_history())
+    factory.human_speech_agent.wait_until_talking_finished()
     yield ({"response": response, "sentences": sentences_list, "input_loop_counter": 0},
            state.update(response=response)
                .update(sentences=sentences_list)
                .update(input_loop_counter=0)
                .append(chat_history=chat_entry))
 
-@action(reads=[], writes=[])
+@action(reads=["mode"], writes=[])
 async def ai_response_finished(state: State) ->  Tuple[dict, State]:
-    title("ai_response_finished: Stop Speech Interrupt Thread")
+    mode = state[StateKeys.mode.name]
+    title(f"ai_response_finished: mode={mode}")
     # wait until TTS and soundcard finished playback
     factory.human_speech_agent.wait_until_talking_finished()
-    # exit the speech-interruption thread, wait until it has shutdown
-    factory.human_speech_agent.stop_speech_interrupt_thread()
+    if mode == Mode.CHAT.name:
+        # exit the speech-interruption thread, wait until it has shutdown
+        factory.human_speech_agent.stop_speech_interrupt_thread()
     return {}, state

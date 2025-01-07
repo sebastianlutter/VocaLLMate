@@ -58,13 +58,10 @@ class InterruptSpeechThread:
         The main loop of the thread. It checks the stop event regularly and
         can also trigger it internally if a condition occurs.
         """
-        self.logger.info("Worker thread started running.")
-        while not self._stop_event.is_set():
-            # Perform the thread's tasks here
-            self.logger.debug(f"Listen for {self.voice_activation.wakeword} as speech interrupt word")
-            asyncio.run(self.voice_activation.listen_for_wake_word(self._stop_event))
-            self.logger.info(f"Interrupt speech. Detected wake word \"{self.voice_activation.wakeword}\" as speech interrupt word")
-            self._stop_event.set()
-            self.stop_callback()
-
+        # Perform the thread's tasks here
+        self.logger.debug(f"Listen for {self.voice_activation.wakeword} as speech interrupt word")
+        asyncio.run(self.voice_activation.listen_for_wake_word(self._stop_event))
+        self.logger.info(f"Interrupt speech. Detected wake word \"{self.voice_activation.wakeword}\" as speech interrupt word")
+        self._stop_event.set()
+        self.stop_callback()
         self.logger.info("Worker thread loop is exiting gracefully.")

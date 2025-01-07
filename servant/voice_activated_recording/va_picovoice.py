@@ -33,8 +33,6 @@ class PorcupineWakeWord(VoiceActivationInterface):
                 # Convert raw PCM data to the format expected by Porcupine
                 pcm = np.frombuffer(chunk, dtype=np.int16)
                 buffer.extend(pcm)
-                if stop_signal is not None:
-                    stop_signal.set()
                 # Process in frames of the expected length
                 while len(buffer) >= self.porcupine.frame_length:
                     frame = np.array(buffer[:self.porcupine.frame_length], dtype=np.int16)
@@ -42,6 +40,8 @@ class PorcupineWakeWord(VoiceActivationInterface):
                     result = self.porcupine.process(frame)
                     if result >= 0:
                         self.logger.info(f"Wake word '{self.wakeword}' detected!")
+                        if stop_signal is not None:
+                            stop_signal.set()
                         return
         finally:
             pass
