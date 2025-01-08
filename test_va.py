@@ -2,7 +2,7 @@ import os
 import time
 import asyncio
 from dotenv import load_dotenv
-from servant.voice_activated_recording.va_factory import VoiceActivatedRecordingFactory
+from vocallmate.voice_activated_recording.va_factory import VoiceActivatedRecordingFactory
 
 load_dotenv()
 

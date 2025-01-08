@@ -4,10 +4,10 @@ def SttFactory():
     provider_name=os.getenv('STT_PROVIDER', 'whisper')
     match provider_name:
         case 'whisper':
-            from servant.stt.stt_whisper_remote import SpeechToTextWhisperRemote
+            from vocallmate.stt.stt_whisper_remote import SpeechToTextWhisperRemote
             p = SpeechToTextWhisperRemote()
         case 'speech-recognition':
-            from servant.stt.stt_speech_recognition_local import SpeechToTextSpeechRecognitionLocal
+            from vocallmate.stt.stt_speech_recognition_local import SpeechToTextSpeechRecognitionLocal
             p = SpeechToTextSpeechRecognitionLocal()
         case _:
             raise Exception(f"SttFactory: unknown provider name {provider_name}")

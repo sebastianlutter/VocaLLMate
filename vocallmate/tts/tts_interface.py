@@ -4,7 +4,7 @@ import queue
 import logging
 from abc import ABC, abstractmethod
 from typing import TypeVar, Type
-from servant.audio_device.soundcard_factory import SoundcardFactory
+from vocallmate.audio_device.soundcard_factory import SoundcardFactory
 
 T = TypeVar('T', bound='TextToSpeechInterface')
 

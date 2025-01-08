@@ -7,11 +7,11 @@ import hashlib
 import logging
 from pydub import AudioSegment
 from typing import AsyncGenerator, Tuple
-from servant.audio_device.soundcard_factory import SoundcardFactory
-from servant.interrupt_speech_thread import InterruptSpeechThread
-from servant.stt.stt_factory import SttFactory
-from servant.tts.tts_factory import TtsFactory
-from servant.voice_activated_recording.va_factory import VoiceActivatedRecordingFactory
+from vocallmate.audio_device.soundcard_factory import SoundcardFactory
+from vocallmate.interrupt_speech_thread import InterruptSpeechThread
+from vocallmate.stt.stt_factory import SttFactory
+from vocallmate.tts.tts_factory import TtsFactory
+from vocallmate.voice_activated_recording.va_factory import VoiceActivatedRecordingFactory
 from tqdm import tqdm
 import soundfile as sf
 
@@ -160,6 +160,7 @@ class HumanSpeechAgent:
         if wait_for_wakeword:
             self.soundcard.stop_recording()
             self.soundcard.wait_until_playback_finished()
+            self.engage_input_beep()
             await self.voice_activator.listen_for_wake_word(stop_signal=None)
             self.beep_positive()
 

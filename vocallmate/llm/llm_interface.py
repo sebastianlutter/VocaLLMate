@@ -2,7 +2,7 @@ import os
 import datetime
 from abc import ABC, abstractmethod
 
-from servant.llm.llm_prompt_manager_interface import PromptManager
+from vocallmate.llm.llm_prompt_manager_interface import PromptManager
 
 
 class LmmInterface(ABC):

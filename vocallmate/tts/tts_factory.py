@@ -4,10 +4,10 @@ def TtsFactory():
     provider_name=os.getenv('TTS_PROVIDER', 'pyttsx')
     match provider_name:
         case 'openedai':
-            from servant.tts.tts_openedai_speech import TextToSpeechOpenedaiSpeech
+            from vocallmate.tts.tts_openedai_speech import TextToSpeechOpenedaiSpeech
             p = TextToSpeechOpenedaiSpeech()
         case 'pyttsx':
-            from servant.tts.tts_pyttsx import TextToSpeechPyTtsx, TextToSpeechEspeakCli
+            from vocallmate.tts.tts_pyttsx import TextToSpeechPyTtsx, TextToSpeechEspeakCli
             #p = TextToSpeechPyTtsx()
             p = TextToSpeechEspeakCli()
         case _:

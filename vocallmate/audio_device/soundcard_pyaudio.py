@@ -9,7 +9,7 @@ import asyncio
 import logging
 import numpy as np
 from typing import AsyncGenerator
-from servant.audio_device.soundcard_interface import AudioInterface
+from vocallmate.audio_device.soundcard_interface import AudioInterface
 from scipy.signal import resample
 
 

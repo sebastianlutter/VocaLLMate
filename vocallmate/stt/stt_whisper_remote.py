@@ -7,7 +7,7 @@ import asyncio
 import logging
 from queue import Queue
 
-from servant.stt.stt_interface import SpeechToTextInterface
+from vocallmate.stt.stt_interface import SpeechToTextInterface
 from websocket import WebSocket, WebSocketApp, ABNF
 
 # see https://github.com/openai/whisper/discussions/1536

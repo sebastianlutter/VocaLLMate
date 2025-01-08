@@ -1,6 +1,6 @@
 import openai
 import logging
-from servant.tts.tts_interface import TextToSpeechInterface
+from vocallmate.tts.tts_interface import TextToSpeechInterface
 from io import BytesIO
 import soundfile as sf
 

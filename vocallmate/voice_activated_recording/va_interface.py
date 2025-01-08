@@ -3,7 +3,7 @@ import threading
 from abc import ABC, abstractmethod
 from typing import Optional
 
-from servant.audio_device.soundcard_factory import SoundcardFactory
+from vocallmate.audio_device.soundcard_factory import SoundcardFactory
 
 
 class VoiceActivationInterface(ABC):

@@ -6,11 +6,11 @@ import nltk
 from nltk.corpus import swadesh
 from burr.core.action import streaming_action
 from burr.core import State
-from servant.llm.llm_prompt_manager_interface import Mode
+from vocallmate.llm.llm_prompt_manager_interface import Mode
 from burr.core import ApplicationBuilder, when, expr
 from typing import Tuple, Optional, AsyncGenerator
-from servant.utils import title
-from servant.burr_actions import get_user_speak_input, we_did_not_understand, human_input, \
+from vocallmate.utils import title
+from vocallmate.burr_actions import get_user_speak_input, we_did_not_understand, human_input, \
     check_if_input_is_garbage, StateKeys, choose_mode, exit_mode, ai_response, entry_point, mode_led_human_input, \
     ai_response_finished
 
@@ -132,7 +132,7 @@ def application():
         # init the chat history with the system prompt
 #        .with_state(chat_history=[], exit_chat=False, input_loop_counter=0)
         .with_entrypoint("entry_point")
-        .with_tracker("local", project="servant-llm")
+        .with_tracker("local", project="vocaLLMate")
         .build()
     )
 

@@ -1,7 +1,7 @@
 import logging
 import tiktoken
 from typing import Any, Dict, Generic, Optional, TypeVar, List
-from servant.llm.llm_prompt_manager_interface import PromptManager, Mode, RemoveOldestStrategy, ReductionStrategy, \
+from vocallmate.llm.llm_prompt_manager_interface import PromptManager, Mode, RemoveOldestStrategy, ReductionStrategy, \
     GLOBAL_BASE_TEMPLATES
 
 

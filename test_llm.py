@@ -1,6 +1,6 @@
 import time
 from dotenv import load_dotenv
-from servant.llm.llm_factory import LlmFactory
+from vocallmate.llm.llm_factory import LlmFactory
 
 load_dotenv()
 

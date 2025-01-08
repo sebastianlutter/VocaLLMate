@@ -1,7 +1,7 @@
 import time
 import logging
 import subprocess
-from servant.tts.tts_interface import TextToSpeechInterface
+from vocallmate.tts.tts_interface import TextToSpeechInterface
 import pyttsx3
 
 

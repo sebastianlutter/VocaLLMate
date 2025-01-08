@@ -1,8 +1,8 @@
 import logging
 import asyncio
 import webrtcvad
-from servant.voice_activated_recording.va_interface import VoiceActivationInterface
-from servant.stt.stt_whisper_remote import SpeechToTextWhisperRemote
+from vocallmate.voice_activated_recording.va_interface import VoiceActivationInterface
+from vocallmate.stt.stt_whisper_remote import SpeechToTextWhisperRemote
 
 
 class SttProviderWakeWord(VoiceActivationInterface):

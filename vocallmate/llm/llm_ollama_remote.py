@@ -1,9 +1,9 @@
 from ollama import Client
 
-from servant.llm.llm_prompt_manager_interface import Mode
-from servant.llm.llama_prompt_manager import LlamaPromptManager
-from servant.llm.llm_interface import LmmInterface
-from servant.llm.llm_prompt_manager_interface import PromptManager, RemoveOldestStrategy
+from vocallmate.llm.llm_prompt_manager_interface import Mode
+from vocallmate.llm.llama_prompt_manager import LlamaPromptManager
+from vocallmate.llm.llm_interface import LmmInterface
+from vocallmate.llm.llm_prompt_manager_interface import PromptManager, RemoveOldestStrategy
 from typing import Any, Dict, Generic, Optional, TypeVar, List
 
 class LmmOllamaRemote(LmmInterface):

@@ -2,7 +2,7 @@ import asyncio
 import threading
 import time
 
-from servant.human_speech_agent import HumanSpeechAgent
+from vocallmate.human_speech_agent import HumanSpeechAgent
 from dotenv import load_dotenv
 
 load_dotenv()

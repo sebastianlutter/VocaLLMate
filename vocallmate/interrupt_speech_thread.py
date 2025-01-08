@@ -3,7 +3,7 @@ import asyncio
 import logging
 from typing import Callable
 
-from servant.voice_activated_recording.va_interface import VoiceActivationInterface
+from vocallmate.voice_activated_recording.va_interface import VoiceActivationInterface
 
 
 class InterruptSpeechThread:

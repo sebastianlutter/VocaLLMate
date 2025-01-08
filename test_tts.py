@@ -1,6 +1,6 @@
 import time
 from dotenv import load_dotenv
-from servant.tts.tts_factory import TtsFactory
+from vocallmate.tts.tts_factory import TtsFactory
 
 load_dotenv()
 

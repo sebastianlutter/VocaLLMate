@@ -3,15 +3,15 @@ import re
 import json
 from threading import Event
 from enum import Enum
-from servant.llm.llm_prompt_manager_interface import Mode
+from vocallmate.llm.llm_prompt_manager_interface import Mode
 from burr.examples.streamlit.application import logger
 from nltk.tokenize import sent_tokenize
 from typing import Tuple, Optional, AsyncGenerator
 from burr.core import State
 from burr.core.action import streaming_action, action
-from servant.philips_wiz import wiz_set_state, wiz_get_state
-from servant.utils import title, clean_str_from_markdown, is_conversation_ending, is_sane_input_german
-from servant.servant_factory import ServantFactory
+from vocallmate.philips_wiz import wiz_set_state, wiz_get_state
+from vocallmate.utils import title, clean_str_from_markdown, is_conversation_ending, is_sane_input_german
+from vocallmate.servant_factory import ServantFactory
 
 first_run = True
 factory = ServantFactory()

@@ -5,7 +5,7 @@ import asyncio
 
 import pyaudio
 from dotenv import load_dotenv
-from servant.audio_device.soundcard_factory import SoundcardFactory
+from vocallmate.audio_device.soundcard_factory import SoundcardFactory
 
 load_dotenv()
 

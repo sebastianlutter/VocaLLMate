@@ -5,7 +5,7 @@ import pvporcupine
 import numpy as np
 import threading
 from typing import Optional
-from servant.voice_activated_recording.va_interface import VoiceActivationInterface
+from vocallmate.voice_activated_recording.va_interface import VoiceActivationInterface
 
 class PorcupineWakeWord(VoiceActivationInterface):
     def __init__(self):

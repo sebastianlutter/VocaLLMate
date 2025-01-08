@@ -2,7 +2,7 @@ import wave
 import time
 from dotenv import load_dotenv
 from io import BytesIO
-from servant.stt.stt_factory import SttFactory
+from vocallmate.stt.stt_factory import SttFactory
 
 load_dotenv()
 

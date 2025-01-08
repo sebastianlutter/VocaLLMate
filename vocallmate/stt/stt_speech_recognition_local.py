@@ -4,7 +4,7 @@ import time
 import vosk
 import asyncio
 import logging
-from servant.stt.stt_interface import SpeechToTextInterface
+from vocallmate.stt.stt_interface import SpeechToTextInterface
 
 
 class SpeechToTextSpeechRecognitionLocal(SpeechToTextInterface):

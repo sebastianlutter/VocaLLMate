@@ -41,8 +41,8 @@ async def wiz_set_state(parsed_cmd):
 
 async def main():
     print(await wiz_get_state())
-    cmd = '{"action": "on", "rgbww": [0, 0, 255, 0, 0], "scene": 0}'
-    #cmd = '{"action": "on", "rgbww": [255, 0, 255, 200, 100], "scene": 0, "speed": null, "colortemp": null, "brightness": 255}'
+    #cmd = '{"action": "on", "rgbww": [0, 0, 255, 0, 0], "scene": 0}'
+    cmd = '{"action": "on", "rgbww": [0, 0, 0, 100, 200], "scene": 0, "speed": null, "colortemp": null, "brightness": 80}'
     cmd_parsed = json.loads(cmd)
     await wiz_set_state(cmd_parsed)
     # Once we exit the `with` block, all bulbs get closed in __aexit__()
