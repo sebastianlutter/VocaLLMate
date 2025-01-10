@@ -1,0 +1,112 @@
+optional_checks:
+  - name: "steamdeck"
+    type: "ssh"
+    host: "192.168.1.10"
+    user: "deck"
+    wake_if_down: "AA:BB:CC:DD:EE:FF"
+    actions:
+      - name: "start_game"
+        description: "Starts a game on the Steamdeck"
+        parameters:
+          - name: "game_path"
+            type: "str"
+            description: "Absolute path to the game’s executable or launch script."
+          - name: "additional_option"
+            type: "int"
+            description: "Optional numeric parameter (range 1-10)."
+        check:
+          method: "ssh"
+          command: "ps aux | grep my_game"
+        init:
+          method: "ssh"
+          command: "mkdir -p /home/deck/game_temp"
+        run:
+          method: "ssh"
+          command: "cd /home/deck/game_dir && ./start_game.sh"
+
+      - name: "pre_setup"
+        description: "Prepares the Steamdeck environment"
+        parameters: []
+        check:
+          method: "ssh"
+          command: "test -d /home/deck"
+        init:
+          method: "ssh"
+          command: "echo 'Nothing to init here'"
+        run:
+          method: "ssh"
+          command: "sudo systemctl restart some_service"
+
+  - name: "raspberry"
+    type: "ssh"
+    host: "192.168.1.20"
+    user: "pi"
+    actions:
+      - name: "update_system"
+        description: "Updates and upgrades the system packages"
+        parameters:
+          - name: "update_channel"
+            type: "str"
+            description: "Which update channel to use (e.g. 'stable', 'beta', or 'dev')."
+        check:
+          method: "ssh"
+          command: "test -f /usr/bin/apt-get"
+        init:
+          method: "ssh"
+          command: "sudo apt-get update"
+        run:
+          method: "ssh"
+          command: "sudo apt-get upgrade -y"
+
+  - name: "external-api"
+    type: "http"
+    endpoint: "https://api.example.com/health"
+    actions:
+      - name: "trigger_task"
+        description: "Triggers a background task on the external API"
+        parameters:
+          - name: "task_id"
+            type: "str"
+            description: "Unique identifier for the task to be triggered."
+          - name: "priority"
+            type: "int"
+            description: "Priority level of the task (1 = highest, 5 = default, 10 = lowest)."
+        check:
+          method: "http"
+          endpoint: "https://api.example.com/can-trigger-task"
+        init:
+          method: "http"
+          endpoint: "https://api.example.com/prepare"
+        run:
+          method: "http"
+          endpoint: "https://api.example.com/trigger"
+
+      - name: "check_auth"
+        description: "Verifies that the user is authenticated for the external API"
+        parameters: []
+        check:
+          method: "http"
+          endpoint: "https://api.example.com/is-authenticated"
+        init:
+          method: "http"
+          endpoint: "https://api.example.com/request-auth"
+        run:
+          method: "http"
+          endpoint: "https://api.example.com/complete-auth"
+
+functions:
+  - name: "update_all_and_start_game"
+    description: "Updates the Raspberry Pi and then starts a game on the Steamdeck."
+    steps:
+      - server: "raspberry"
+        action: "update_system"
+        parameters:
+          update_channel: "stable"
+      - server: "steamdeck"
+        action: "pre_setup"
+      - server: "steamdeck"
+        action: "start_game"
+        # If parameters are not defined, they will be asked from the user at runtime
+        # parameters:
+        #   game_path: "/home/deck/my_game.sh"
+        #   additional_option: 2
