@@ -1,4 +1,4 @@
-optional_checks:
+optional_services:
   - name: "steamdeck"
     type: "ssh"
     host: "192.168.1.10"

@@ -147,13 +147,13 @@ Build and run the dev docker and mount the project into the workdir:
 ./runDevDocker.sh
 ```
 
-# README - Usage of the optional_checks.yaml File
+# README - Usage of the optional_actions.yaml File
 
-This project supports additional checks ("optional checks") defined in an **optional_checks.yaml** file. If this file is present, all listed services will be checked automatically. If it is not present, no optional checks will be performed.
+This project supports additional checks ("optional checks") defined in an **optional_actions.yaml** file. If this file is present, all listed services will be checked automatically. If it is not present, no optional checks will be performed.
 
 ## YAML File Structure
 
-The **optional_checks.yaml** can contain multiple entries (checks). Each entry describes one service to be checked. Typically, the following fields are used per entry:
+The **optional_actions.yaml** can contain multiple entries (checks). Each entry describes one service to be checked. Typically, the following fields are used per entry:
 
 - **name**: The name of the service (freely chosen, e.g., "My SSH Server").
 - **type**: The type of service. Currently, the following types are supported:
@@ -174,14 +174,14 @@ Then make sure your ssh key is in the `authorized_keys` of the target machine:
 ssh-copy-id USER@IP
 ```
 
-#### Example optional_checks.yaml
+#### Example optional_actions.yaml
 
 This chapter explains how to configure **servers (targets)** and their **actions** (as well as high-level **functions**) within a YAML file. The YAML is used both by the `SystemStatus` class for checks (HTTP/SSH + optional Wake-on-LAN) and by an orchestrator class (like `ActionsOrchestrator`) for executing defined actions on each server.
 
-Below is a reference sample of the **optional_checks.yaml** structure:
+Below is a reference sample of the **optional_actions.yaml** structure:
 
 ```yaml
-optional_checks:
+optional_services:
   - name: "steamdeck"
     type: "ssh"
     host: "192.168.1.10"
@@ -299,12 +299,12 @@ functions:
 
 ## Overview
 
-- **optional_checks**: Top-level array where each entry represents a _server_ or _target_ that can be checked or used for actions.
+- **optional_services**: Top-level array where each entry represents a _server_ or _target_ that can be checked or used for actions.
 - **functions**: Top-level array for _high-level sequences_ of actions (chaining multiple steps across one or more servers).
 
 ### 1. Server (Target) Entries
 
-Each item under `optional_checks` describes one server or external service. Common fields include:
+Each item under `optional_services` describes one server or external service. Common fields include:
 
 1. **name** (string): A unique identifier for this server/target.  
 2. **type** (string): The connection type, either `ssh` or `http`.  
@@ -385,7 +385,7 @@ The **functions** array allows you to define workflows that chain multiple actio
 - **name** (string): Unique identifier for the function.  
 - **description** (string): Explains the overall purpose.  
 - **steps** (array): Ordered sequence of steps that each reference:
-  - **server** (string): Which server name to target from `optional_checks`.
+  - **server** (string): Which server name to target from `optional_services`.
   - **action** (string): Which action name to perform on that server.
   - **parameters** (object, optional): Key-value pairs for overriding or providing parameter values for that action. If missing, you (or your code) can prompt the user for them at runtime.
 
@@ -423,7 +423,7 @@ If `start_game` requires parameters (like `game_path` or `additional_option`) bu
 
 ## Usage in Python
 
-1. **SystemStatus** can load this file (if present) under the key `"optional_checks"` to perform connectivity checks.  
+1. **SystemStatus** can load this file (if present) under the key `"optional_services"` to perform connectivity checks.  
 2. The **ActionsOrchestrator** parses the file to:
    - List servers (targets).
    - List actions per target.
@@ -439,7 +439,7 @@ They are used by burr_actions to perform actions in the burr graph.
 
 ## Final Notes
 
-- **optional_checks** and **functions** can be maintained in a **single** YAML file.  
+- **optional_services** and **functions** can be maintained in a **single** YAML file.  
 - Each server can have multiple **actions**.  
 - Each **action** can define **parameters**, which your code may prompt the user for or fill in automatically.  
 - **functions** are optional but allow chaining multiple actions in one high-level call.  
@@ -448,7 +448,7 @@ By centralizing these definitions in YAML, you can modify or add new actions wit
 
 #### Behavior if the File Is Missing
 
-If the **optional_checks.yaml** file is not present or contains no entries, no additional services are checked. The application will then only test the mandatory services (STT, TTS, and LLM).
+If the **optional_services.yaml** file is not present or contains no entries, no additional services are checked. The application will then only test the mandatory services (STT, TTS, and LLM).
 
 ## Links / unfinished stuff
 

@@ -1,7 +1,5 @@
 from dotenv import load_dotenv
 
-from vocallmate.system_status import SystemStatus
-
 load_dotenv()
 import threading
 import asyncio
@@ -10,7 +8,7 @@ from nltk.corpus import swadesh
 from burr.core.action import streaming_action
 from burr.core import State
 from vocallmate.llm.llm_prompt_manager_interface import Mode
-from burr.core import ApplicationBuilder, when, expr
+from burr.core import ApplicationBuilder, expr
 from typing import Tuple, Optional, AsyncGenerator
 from vocallmate.utils import title
 from vocallmate.burr_actions import get_user_speak_input, we_did_not_understand, human_input, \

@@ -2,7 +2,6 @@ import os.path
 import threading
 import re
 import json
-from threading import Event
 from enum import Enum
 from vocallmate.llm.llm_prompt_manager_interface import Mode
 from burr.examples.streamlit.application import logger
@@ -11,8 +10,8 @@ from typing import Tuple, Optional, AsyncGenerator
 from burr.core import State
 from burr.core.action import streaming_action, action
 from vocallmate.philips_wiz import wiz_set_state, wiz_get_state
-from vocallmate.system_status import SystemStatus
-from vocallmate.utils import title, clean_str_from_markdown, is_conversation_ending, is_sane_input_german
+from vocallmate.remote_actions.system_status import SystemStatus
+from vocallmate.utils import title, clean_str_from_markdown, is_sane_input_german
 from vocallmate.vocallmate_factory import VocaLLMateFactory
 
 first_run = True
