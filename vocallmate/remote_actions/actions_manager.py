@@ -213,22 +213,3 @@ class ActionsOrchestrator:
         return None
 
 
-# =========================
-# Example usage:
-
-# 1) Create a SystemStatus instance (assumes 'factory' is available, e.g., from your code)
-# system_status = SystemStatus(factory, config_file="optional_actions.yaml")
-
-# 2) Create an orchestrator
-# orchestrator = ActionsOrchestrator("optional_actions.yaml", system_status)
-
-# 3) List servers
-# print("Available servers:", orchestrator.list_targets())
-
-# 4) List actions for a server
-# print("Actions for steamdeck:", orchestrator.list_actions("steamdeck"))
-
-# 5) Run an action (pass parameters if needed)
-# asyncio.run(
-#     orchestrator.run_action("steamdeck", "start_game", {"game_path": "/path/to/game.sh", "additional_option": 3})
-# )
