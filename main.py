@@ -1,4 +1,7 @@
 from dotenv import load_dotenv
+
+from vocallmate.system_status import SystemStatus
+
 load_dotenv()
 import threading
 import asyncio

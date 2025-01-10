@@ -147,6 +147,54 @@ Build and run the dev docker and mount the project into the workdir:
 ./runDevDocker.sh
 ```
 
+# README - Usage of the optional_checks.yaml File
+
+This project supports additional checks ("optional checks") defined in an **optional_checks.yaml** file. If this file is present, all listed services will be checked automatically. If it is not present, no optional checks will be performed.
+
+## YAML File Structure
+
+The **optional_checks.yaml** can contain multiple entries (checks). Each entry describes one service to be checked. Typically, the following fields are used per entry:
+
+- **name**: The name of the service (freely chosen, e.g., "My SSH Server").
+- **type**: The type of service. Currently, the following types are supported:
+  - `ssh` – Performs an SSH check (connection + simple command).
+  - `http` – Performs an HTTP check (e.g., a GET request to a URL).
+- **host** (only for `ssh`): Hostname or IP address of the target system.
+- **user** (only for `ssh`): Username for the SSH connection.
+- **endpoint** (only for `http`): Full URL to be requested (GET or POST).
+- **wake_if_down** (optional): A MAC address (e.g., `00:11:22:33:44:55`) to attempt a Wake-on-LAN if the initial check fails. The check will then be retried once.
+
+> **Note**: If `wake_if_down` is specified and the first check (SSH or HTTP) fails, the code sends a Wake-on-LAN packet to the specified MAC address. It then waits up to 30 seconds (in 5-second intervals) before performing a second check. If this second check also fails, the service is ultimately marked as unavailable.
+
+#### SSH 
+Make sure all `ssh` hosts and user have access using the users ssh key as auth.
+On the machine running this application make sure a SSH keypair exists (use `ssh-keygen -trsa` if not).
+Then make sure your ssh key is in the `authorized_keys` of the target machine:
+```
+ssh-copy-id USER@IP
+```
+
+#### Example optional_checks.yaml
+
+```yaml
+optional_checks:
+  - name: "Example-SSH"
+    type: "ssh"
+    host: "192.168.1.10"
+    user: "pi"
+    wake_if_down: "AA:BB:CC:DD:EE:FF"
+
+  - name: "Example-HTTP"
+    type: "http"
+    endpoint: "https://example.com/health"
+```
+
+In this example, there is one SSH service and one HTTP service. For the SSH check, if it fails, a Wake-on-LAN packet is sent to the specified MAC address `AA:BB:CC:DD:EE:FF`, and the check is retried once.
+
+#### Behavior if the File Is Missing
+
+If the **optional_checks.yaml** file is not present or contains no entries, no additional services are checked. The application will then only test the mandatory services (STT, TTS, and LLM).
+
 ## Links / unfinished stuff
 
 * https://github.com/matatonic/openedai-speech

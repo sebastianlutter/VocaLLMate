@@ -62,13 +62,13 @@ class HumanSpeechAgent:
             "Gute Reise!", "Viel Erfolg noch!", "Danke und tschüss!", "Alles Gute!", "Bis zum nächsten Treffen!",
             "Leb wohl!"
         ]
-        init_greetings_identity = "Alle Systeme arbeiten nominal! "
+        init_greetings_identity = ""
         self.init_greetings = [
             "Guten Tag!", "Hi, wie geht's?", "Schön dich zu sehen!", "Hallo und willkommen!",
             "Freut mich, dich zu treffen!", "Hallo zusammen!", "Hallo, mein Freund!",
             "Guten Tag, wie kann ich helfen?", "Willkommen!", "Hallo an alle!",
             "Herzlich willkommen!", "Hallo, schön dich hier zu haben!", "Hey, alles klar?",
-            "Hallo, schön dich kennenzulernen!", "Hallo, wie läuft's?", "Einen schönen Tag!", "Schön, dass du da bist!"
+            "Hallo, schön dich kennenzulernen!", "Hallo, wie läuft's?", "Einen schönen Tag!"
         ]
         self.init_greetings = list(map(lambda g: f'{init_greetings_identity} {g}', self.init_greetings))
         self.did_not_understand = [

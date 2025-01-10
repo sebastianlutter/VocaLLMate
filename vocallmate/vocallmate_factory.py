@@ -4,7 +4,7 @@ from vocallmate.tts.tts_factory import TtsFactory
 from vocallmate.llm.llm_factory import LlmFactory
 from vocallmate.voice_activated_recording.va_factory import VoiceActivatedRecordingFactory
 
-class ServantFactory:
+class VocaLLMateFactory:
 
     def __init__(self):
         self.stt_provider = SttFactory()

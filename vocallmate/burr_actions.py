@@ -1,3 +1,4 @@
+import os.path
 import threading
 import re
 import json
@@ -10,11 +11,12 @@ from typing import Tuple, Optional, AsyncGenerator
 from burr.core import State
 from burr.core.action import streaming_action, action
 from vocallmate.philips_wiz import wiz_set_state, wiz_get_state
+from vocallmate.system_status import SystemStatus
 from vocallmate.utils import title, clean_str_from_markdown, is_conversation_ending, is_sane_input_german
-from vocallmate.servant_factory import ServantFactory
+from vocallmate.vocallmate_factory import VocaLLMateFactory
 
 first_run = True
-factory = ServantFactory()
+factory = VocaLLMateFactory()
 
 
 class StateKeys(Enum):
@@ -71,6 +73,17 @@ async def entry_point(state: State) -> AsyncGenerator[Tuple[dict, Optional[State
     """
     Init all state variables with StateKeys enum
     """
+    # check state of the overall system: LLM, TTS, STT
+    config_file = 'optional_checks.yaml' if os.path.isfile('optional_checks.yaml') else None
+    stats = SystemStatus(factory=factory, config_file=config_file)
+    system_status = await stats.get_status()
+    spoken_status = stats.get_status_spoken(system_status)
+    if not system_status['report']['all_mandatory_available']:
+        factory.human_speech_agent.beep_error()
+        factory.human_speech_agent.say(spoken_status)
+        raise Exception(f"Missing mandatory services: {system_status['missing_mandatory_services']}")
+    else:
+        factory.human_speech_agent.say(spoken_status)
     title("entry_point: greeting the user")
     factory.human_speech_agent.say_init_greeting()
     factory.human_speech_agent.wait_until_talking_finished()
