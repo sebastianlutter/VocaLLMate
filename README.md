@@ -176,20 +176,275 @@ ssh-copy-id USER@IP
 
 #### Example optional_checks.yaml
 
+This chapter explains how to configure **servers (targets)** and their **actions** (as well as high-level **functions**) within a YAML file. The YAML is used both by the `SystemStatus` class for checks (HTTP/SSH + optional Wake-on-LAN) and by an orchestrator class (like `ActionsOrchestrator`) for executing defined actions on each server.
+
+Below is a reference sample of the **optional_checks.yaml** structure:
+
 ```yaml
 optional_checks:
-  - name: "Example-SSH"
+  - name: "steamdeck"
     type: "ssh"
     host: "192.168.1.10"
-    user: "pi"
+    user: "deck"
     wake_if_down: "AA:BB:CC:DD:EE:FF"
+    actions:
+      - name: "start_game"
+        description: "Starts a game on the Steamdeck"
+        parameters:
+          - name: "game_path"
+            type: "str"
+            description: "Absolute path to the game’s executable or launch script."
+          - name: "additional_option"
+            type: "int"
+            description: "Optional numeric parameter (range 1-10)."
+        check:
+          method: "ssh"
+          command: "ps aux | grep my_game"
+        init:
+          method: "ssh"
+          command: "mkdir -p /home/deck/game_temp"
+        run:
+          method: "ssh"
+          command: "cd /home/deck/game_dir && ./start_game.sh"
 
-  - name: "Example-HTTP"
+      - name: "pre_setup"
+        description: "Prepares the Steamdeck environment"
+        parameters: []
+        check:
+          method: "ssh"
+          command: "test -d /home/deck"
+        init:
+          method: "ssh"
+          command: "echo 'Nothing to init here'"
+        run:
+          method: "ssh"
+          command: "sudo systemctl restart some_service"
+
+  - name: "raspberry"
+    type: "ssh"
+    host: "192.168.1.20"
+    user: "pi"
+    actions:
+      - name: "update_system"
+        description: "Updates and upgrades the system packages"
+        parameters:
+          - name: "update_channel"
+            type: "str"
+            description: "Which update channel to use (e.g. 'stable', 'beta', or 'dev')."
+        check:
+          method: "ssh"
+          command: "test -f /usr/bin/apt-get"
+        init:
+          method: "ssh"
+          command: "sudo apt-get update"
+        run:
+          method: "ssh"
+          command: "sudo apt-get upgrade -y"
+
+  - name: "external-api"
     type: "http"
-    endpoint: "https://example.com/health"
+    endpoint: "https://api.example.com/health"
+    actions:
+      - name: "trigger_task"
+        description: "Triggers a background task on the external API"
+        parameters:
+          - name: "task_id"
+            type: "str"
+            description: "Unique identifier for the task to be triggered."
+          - name: "priority"
+            type: "int"
+            description: "Priority level of the task (1 = highest, 5 = default, 10 = lowest)."
+        check:
+          method: "http"
+          endpoint: "https://api.example.com/can-trigger-task"
+        init:
+          method: "http"
+          endpoint: "https://api.example.com/prepare"
+        run:
+          method: "http"
+          endpoint: "https://api.example.com/trigger"
+
+      - name: "check_auth"
+        description: "Verifies that the user is authenticated for the external API"
+        parameters: []
+        check:
+          method: "http"
+          endpoint: "https://api.example.com/is-authenticated"
+        init:
+          method: "http"
+          endpoint: "https://api.example.com/request-auth"
+        run:
+          method: "http"
+          endpoint: "https://api.example.com/complete-auth"
+
+functions:
+  - name: "update_all_and_start_game"
+    description: "Updates the Raspberry Pi and then starts a game on the Steamdeck."
+    steps:
+      - server: "raspberry"
+        action: "update_system"
+        parameters:
+          update_channel: "stable"
+      - server: "steamdeck"
+        action: "pre_setup"
+      - server: "steamdeck"
+        action: "start_game"
+        # If parameters are not defined, they will be asked from the user at runtime
+        # parameters:
+        #   game_path: "/home/deck/my_game.sh"
+        #   additional_option: 2
 ```
 
-In this example, there is one SSH service and one HTTP service. For the SSH check, if it fails, a Wake-on-LAN packet is sent to the specified MAC address `AA:BB:CC:DD:EE:FF`, and the check is retried once.
+---
+
+## Overview
+
+- **optional_checks**: Top-level array where each entry represents a _server_ or _target_ that can be checked or used for actions.
+- **functions**: Top-level array for _high-level sequences_ of actions (chaining multiple steps across one or more servers).
+
+### 1. Server (Target) Entries
+
+Each item under `optional_checks` describes one server or external service. Common fields include:
+
+1. **name** (string): A unique identifier for this server/target.  
+2. **type** (string): The connection type, either `ssh` or `http`.  
+3. **host** (string, optional): Required if `type` is `ssh`. Hostname or IP for SSH connection.  
+4. **user** (string, optional): Required if `type` is `ssh`. The username for the SSH session.  
+5. **endpoint** (string, optional): Required if `type` is `http`. The base endpoint or health-check URL.  
+6. **wake_if_down** (string, optional): A MAC address used for Wake-on-LAN if the server fails the initial check (e.g., `"AA:BB:CC:DD:EE:FF"`).  
+7. **actions** (array): A list of actionable items (commands, scripts, or HTTP calls) that can be performed on this server.
+
+#### Example Server Definition
+
+```yaml
+- name: "steamdeck"
+  type: "ssh"
+  host: "192.168.1.10"
+  user: "deck"
+  wake_if_down: "AA:BB:CC:DD:EE:FF"
+  actions: [...]
+```
+
+---
+
+### 2. Actions
+
+Each server can define one or more **actions**, each describing a set of instructions or commands to be performed. Fields inside each action:
+
+- **name** (string): Unique name within this server’s scope (e.g., `"start_game"`).  
+- **description** (string): Brief text describing what this action does.  
+- **parameters** (array): A list of parameter definitions required by this action.
+  - Each parameter has:
+    - **name**: The parameter name (key).
+    - **type**: The expected Python-type of the parameter, e.g. `"str"` or `"int"`.
+    - **description**: Explains what the parameter is for, including ranges or usage details.
+- **check** (object): A step to verify feasibility before running the action.  
+- **init** (object, optional): A step to do any necessary setup.  
+- **run** (object): The main step to perform the action.  
+
+#### check/init/run Fields
+
+Each step (check, init, run) specifies:
+
+- **method**: `"ssh"` or `"http"`, indicating how to call it.
+  - If `"ssh"`, expects a `command` to be executed.
+  - If `"http"`, expects an `endpoint` to be requested (by default, a GET request unless otherwise implemented).
+- **command** (string, only for `ssh`): The shell command to run on the remote host.
+- **endpoint** (string, only for `http`): The URL for the REST call.
+
+#### Example Action Definition
+
+```yaml
+actions:
+  - name: "start_game"
+    description: "Starts a game on the Steamdeck"
+    parameters:
+      - name: "game_path"
+        type: "str"
+        description: "Absolute path to the game’s executable or launch script."
+      - name: "additional_option"
+        type: "int"
+        description: "Optional numeric parameter (range 1-10)."
+    check:
+      method: "ssh"
+      command: "ps aux | grep my_game"
+    init:
+      method: "ssh"
+      command: "mkdir -p /home/deck/game_temp"
+    run:
+      method: "ssh"
+      command: "cd /home/deck/game_dir && ./start_game.sh"
+```
+
+---
+
+### 3. Functions (High-Level Action Sequences)
+
+The **functions** array allows you to define workflows that chain multiple actions—possibly across different servers. Each function has:
+
+- **name** (string): Unique identifier for the function.  
+- **description** (string): Explains the overall purpose.  
+- **steps** (array): Ordered sequence of steps that each reference:
+  - **server** (string): Which server name to target from `optional_checks`.
+  - **action** (string): Which action name to perform on that server.
+  - **parameters** (object, optional): Key-value pairs for overriding or providing parameter values for that action. If missing, you (or your code) can prompt the user for them at runtime.
+
+#### Example Function Definition
+
+```yaml
+functions:
+  - name: "update_all_and_start_game"
+    description: "Updates the Raspberry Pi and then starts a game on the Steamdeck."
+    steps:
+      - server: "raspberry"
+        action: "update_system"
+        parameters:
+          update_channel: "stable"
+
+      - server: "steamdeck"
+        action: "pre_setup"
+
+      - server: "steamdeck"
+        action: "start_game"
+        # If parameters are not defined, they will be asked from the user at runtime
+        # parameters:
+        #   game_path: "/home/deck/my_game.sh"
+        #   additional_option: 2
+```
+
+Here, we see a sequence of three steps:
+1. **Raspberry** → runs `update_system` action (with `update_channel`=`stable`).  
+2. **Steamdeck** → runs `pre_setup`.  
+3. **Steamdeck** → runs `start_game`.  
+
+If `start_game` requires parameters (like `game_path` or `additional_option`) but they’re not provided, you can ask the user at runtime or assign a default.
+
+---
+
+## Usage in Python
+
+1. **SystemStatus** can load this file (if present) under the key `"optional_checks"` to perform connectivity checks.  
+2. The **ActionsOrchestrator** parses the file to:
+   - List servers (targets).
+   - List actions per target.
+   - Execute actions (including check → init → run steps).
+   - Follow the sequences in `functions`.
+   - 
+They are used by burr_actions to perform actions in the burr graph.
+
+### If the File is Missing
+- When this YAML file is **not** found or is empty, `SystemStatus` only performs checks on **mandatory** services (STT, TTS, LLM). No optional checks or actions will be processed.
+
+---
+
+## Final Notes
+
+- **optional_checks** and **functions** can be maintained in a **single** YAML file.  
+- Each server can have multiple **actions**.  
+- Each **action** can define **parameters**, which your code may prompt the user for or fill in automatically.  
+- **functions** are optional but allow chaining multiple actions in one high-level call.  
+
+By centralizing these definitions in YAML, you can modify or add new actions without changing Python code.
 
 #### Behavior if the File Is Missing
 
