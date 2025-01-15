@@ -147,6 +147,12 @@ Beachte die wichtigste Regel strikt: Antworte mit EINER EINZELNEN JSON Ausgabe d
         user_say_str=''
     ),
     Mode.EXIT.name: PromptTemplate(
+        mode=Mode.STATUS,
+        description="Anzeigen des System Status",
+        system_prompt='',
+        user_say_str=''
+    ),
+    Mode.STATUS.name: PromptTemplate(
         mode=Mode.EXIT,
         description="Beenden",
         system_prompt='',

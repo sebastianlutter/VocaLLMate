@@ -13,7 +13,7 @@ from typing import Tuple, Optional, AsyncGenerator
 from vocallmate.utils import title
 from vocallmate.burr_actions import get_user_speak_input, we_did_not_understand, human_input, \
     check_if_input_is_garbage, StateKeys, choose_mode, exit_mode, ai_response, entry_point, mode_led_human_input, \
-    ai_response_finished
+    ai_response_finished, mode_status_human_input
 
 nltk.download('punkt_tab', quiet=True)
 # Load German words from the Swadesh corpus
@@ -53,7 +53,8 @@ def application():
             exit_mode=exit_mode,
             exit_mode_silent=exit_mode.bind(be_silent=True),
             entry_point=entry_point,
-            mode_led_human_input=mode_led_human_input
+            mode_led_human_input=mode_led_human_input,
+            mode_status_human_input=mode_status_human_input
         )
         .with_transitions(
             #
