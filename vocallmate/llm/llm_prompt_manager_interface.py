@@ -11,10 +11,13 @@ class Mode(Enum):
     Wähle EXIT wenn der User das Gespräch beenden oder abbrechen will oder sich verabschieded hat.
     """
     GARBAGEINPUT = """
-    Wähle GARBAGEINPUT wenn die Anfrage unverständlich oder unvollständig erscheint
+    Wähle GARBAGEINPUT wenn die Anfrage unverständlich oder unvollständig erscheint.
     """
     LEDCONTROL = """
     Wähle LEDCONTROL wenn der User die Beleuchtung oder das Licht verändern, ein oder ausschalten möchte.
+    """
+    STATUS = """
+    Wähle STATUS wenn der User von Geräten (Fernseher, Verstärker) oder Dinge ein- oder ausschalten will (ausser wenn es um Licht geht).
     """
     CHAT = """
     Wähle CHAT wenn der User eine andere bisher nicht genannte Frage gestellt hat, oder sonstiger Small Talk oder verständlichen Satz ohne Bezug zu den anderen Themen. Im Zweifel diese Option wählen wenn der Input eine valide Frage darstellt.

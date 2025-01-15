@@ -67,6 +67,17 @@ async def mode_led_human_input(state: State) -> AsyncGenerator[Tuple[dict, Optio
     yield ({'command': json.dumps(parsed_command), 'input_ok': input_ok},
             state.update(command=json_cmd).update(input_ok=input_ok))
 
+@streaming_action(reads=['response'], writes=['input_ok', 'command'])
+async def mode_status_human_input(state: State) -> AsyncGenerator[Tuple[dict, Optional[State]], None]:
+    response = state["response"]
+    # check state of the overall system: LLM, TTS, STT
+    config_file = 'optional_checks.yaml' if os.path.isfile('optional_checks.yaml') else None
+    stats = SystemStatus(factory=factory, config_file=config_file)
+    system_status = await stats.get_status()
+    spoken_status = stats.get_status_spoken(system_status)
+    factory.human_speech_agent.say(f'System status: {spoken_status}')
+    yield {"command": "", "input_ok": ""}, state.update(command="").update(input_ok="")
+
 @streaming_action(reads=[], writes=[m.name for m in StateKeys])
 async def entry_point(state: State) -> AsyncGenerator[Tuple[dict, Optional[State]], None]:
     """
@@ -112,14 +123,15 @@ async def we_did_not_understand(state: State) -> Tuple[dict, State]:
     return {"input_loop_counter": counter}, state.update(input_loop_counter=counter)
 
 @action(reads=["mode"], writes=["mode", "chat_history", "input_loop_counter", "prompt", "command"])
-async def exit_mode(state: State) -> Tuple[dict, State]:
+async def exit_mode(state: State, be_silent: bool = False) -> Tuple[dict, State]:
     mode = state["mode"]
-    title("exit_mode: "+mode)
-    if mode == Mode.CHAT:
+    title(f"exit_mode: silent={be_silent} "+mode)
+    if mode == Mode.CHAT and not be_silent:
         # say something to the user
         factory.human_speech_agent.say(f"Ich habe den Live Chat Modus beendet und unseren Chat geleert.")
         factory.human_speech_agent.say(f"Um mich wieder zu aktivieren sage das Wort {factory.va_provider.wakeword}.")
         factory.human_speech_agent.wait_until_talking_finished()
+    # fetch the prompt manager for the current mode
     prompt_manager = factory.llm_provider.get_prompt_manager()
     # clear history of the current mode chat
     prompt_manager.empty_history()

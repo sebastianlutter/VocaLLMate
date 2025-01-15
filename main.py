@@ -51,6 +51,7 @@ def application():
             ai_response_finished=ai_response_finished,
             choose_mode=choose_mode,
             exit_mode=exit_mode,
+            exit_mode_silent=exit_mode.bind(be_silent=True),
             entry_point=entry_point,
             mode_led_human_input=mode_led_human_input
         )
@@ -124,6 +125,13 @@ def application():
             # when the user input was not useful parseable and no command has been instruct the user
             ("mode_led_human_input", "we_did_not_understand",
              expr(f'not input_ok')),
+            #
+            # CONTROL SYSTEM ENVIRONMENT
+            #
+            # fetch the system status and tell the user
+            ("ai_response_finished", "mode_status_human_input",
+             expr(f'mode == "{Mode.STATUS.name}"')),
+            ("mode_status_human_input", "exit_mode_silent"),
             #
             # A catch all target if modus is not supported yet
             #
